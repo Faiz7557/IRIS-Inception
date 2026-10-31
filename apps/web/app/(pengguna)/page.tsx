@@ -1,11 +1,12 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { INCIDENTS } from "@/lib/incidents";
 import { t } from "@/lib/copy";
-import { loadProfile, useGeo } from "@/lib/geo";
+import { loadProfile, useGeo, vibrate } from "@/lib/geo";
+import { saveLocalProfile } from "@/lib/offline-store";
 import type { CreateCall, Incident } from "@/lib/protocol";
 import { IncidentTile } from "@/components/IncidentTile";
 import { SosHoldButton } from "@/components/SosHoldButton";
@@ -41,14 +42,57 @@ export default function BerandaPage() {
   const hasAddress = address === null ? null : address !== "";
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [doubleTap, setDoubleTap] = useState(false);
+  const [silentNotice, setSilentNotice] = useState<string | null>(null);
+  const headerTimer = useRef<number | NodeJS.Timeout | null>(null);
+  const noticeTimer = useRef<number | NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadProfile().then((p) => {
       if (!p) return;
       setPractice(p.practice_mode !== false);
       setAddress(typeof p.address === "string" ? p.address.trim() : "");
+      setDoubleTap(!!p.double_tap_sos);
     });
+    return () => {
+      clearTimeout(headerTimer.current ?? undefined);
+      clearTimeout(noticeTimer.current ?? undefined);
+    };
   }, []);
+
+  const toggleSilent = useCallback(async () => {
+    const nextSilent = !document.documentElement.classList.contains("silent");
+    document.documentElement.classList.toggle("silent", nextSilent);
+    vibrate(50);
+    const msg = nextSilent ? "Mode senyap aktif" : "Mode senyap nonaktif";
+    setSilentNotice(msg);
+    clearTimeout(noticeTimer.current ?? undefined);
+    noticeTimer.current = setTimeout(() => setSilentNotice(null), 2500);
+    try {
+      const p = await loadProfile();
+      if (p) {
+        const updated = { ...p, silent_mode: nextSilent };
+        await api("/v1/me/profile", { method: "PUT", body: JSON.stringify(updated) });
+        await saveLocalProfile(updated as Parameters<typeof saveLocalProfile>[0]);
+      }
+    } catch {
+      /* local toggle stays */
+    }
+  }, []);
+
+  const onHeaderPointerDown = useCallback(() => {
+    clearTimeout(headerTimer.current ?? undefined);
+    headerTimer.current = setTimeout(() => {
+      headerTimer.current = null;
+      toggleSilent();
+    }, 2000);
+  }, [toggleSilent]);
+
+  const onHeaderPointerUp = useCallback(() => {
+    clearTimeout(headerTimer.current ?? undefined);
+    headerTimer.current = null;
+  }, []);
+
 
   const start = useCallback(async () => {
     if (busy) return;
@@ -124,7 +168,20 @@ export default function BerandaPage() {
         </Link>
       </div>
 
-      <h1 className="mt-2 mb-4 text-[34px] leading-[38px] font-extrabold tracking-[-0.02em] text-balance">{t("home.title")}</h1>
+      <h1
+        onPointerDown={onHeaderPointerDown}
+        onPointerUp={onHeaderPointerUp}
+        onPointerCancel={onHeaderPointerUp}
+        className="mt-2 mb-4 text-[34px] leading-[38px] font-extrabold tracking-[-0.02em] text-balance select-none cursor-pointer"
+        title="Tahan 2 detik untuk mode senyap"
+      >
+        {t("home.title")}
+      </h1>
+      {silentNotice && (
+        <p role="status" aria-live="polite" className="mb-3 rounded-lg bg-asphalt-2 px-3 py-1.5 text-center text-sm font-semibold text-paint">
+          {silentNotice}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-2.5">
         {INCIDENTS.map((i) => (
@@ -165,7 +222,7 @@ export default function BerandaPage() {
 
       <div className="mt-auto pt-6">
         {err && <p role="alert" className="mb-2 font-bold text-signal">{err}</p>}
-        <SosHoldButton disabled={busy} onComplete={start} />
+        <SosHoldButton disabled={busy} onComplete={start} doubleTap={doubleTap} />
       </div>
     </main>
   );

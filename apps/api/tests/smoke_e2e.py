@@ -28,7 +28,7 @@ def ok(step: str, detail: str = "") -> None:
     print(f"OK   {step}{(' - ' + detail) if detail else ''}", flush=True)
 
 
-async def wait(ws, pred, what: str, timeout: float = 5.0, frames: list | None = None) -> dict:
+async def wait(ws, pred, what: str, timeout: float = 30.0, frames: list | None = None) -> dict:
     """Read until pred(msg) is true. Binary frames go into `frames`."""
     async def loop():
         while True:

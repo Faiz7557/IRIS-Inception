@@ -8,7 +8,15 @@ const R = 22;
 const C = 2 * Math.PI * R;
 
 /** Hold 3 s (pointer, or Space/Enter anywhere on the page) to fire onComplete. Progress ring + 3-2-1. */
-export function SosHoldButton({ onComplete, disabled }: { onComplete: () => void; disabled?: boolean }) {
+export function SosHoldButton({
+  onComplete,
+  disabled,
+  doubleTap,
+}: {
+  onComplete: () => void;
+  disabled?: boolean;
+  doubleTap?: boolean;
+}) {
   const [p, setP] = useState(0); // 0..1
   const [holding, setHolding] = useState(false);
   const [hint, setHint] = useState(false);
@@ -17,20 +25,31 @@ export function SosHoldButton({ onComplete, disabled }: { onComplete: () => void
   const lastSec = useRef(-1);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doneRef = useRef(false);
-
+  const lastTapRef = useRef(0);
   const stop = useCallback((early: boolean) => {
     cancelAnimationFrame(raf.current);
+    const holdDuration = startRef.current ? performance.now() - startRef.current : 0;
     if (!startRef.current) return;
     startRef.current = 0;
     setHolding(false);
     setP(0);
     if (early && !doneRef.current) {
+      if (doubleTap && holdDuration < 300) {
+        const now = performance.now();
+        if (now - lastTapRef.current < 450) {
+          lastTapRef.current = 0;
+          doneRef.current = true;
+          vibrate([40, 50, 40]);
+          onComplete();
+          return;
+        }
+        lastTapRef.current = now;
+      }
       setHint(true);
-      if (hintTimer.current) clearTimeout(hintTimer.current);
+      clearTimeout(hintTimer.current ?? undefined);
       hintTimer.current = setTimeout(() => setHint(false), 2000);
     }
-  }, []);
-
+  }, [doubleTap, onComplete]);
   const tick = useCallback(() => {
     const el = performance.now() - startRef.current;
     const sec = Math.floor(el / 1000);
@@ -60,7 +79,7 @@ export function SosHoldButton({ onComplete, disabled }: { onComplete: () => void
 
   useEffect(() => () => {
     cancelAnimationFrame(raf.current);
-    if (hintTimer.current) clearTimeout(hintTimer.current);
+    clearTimeout(hintTimer.current ?? undefined);
   }, []);
 
   // Keyboard hold works from page load: on first visit focus is on <body>, not on this button.
@@ -137,7 +156,13 @@ export function SosHoldButton({ onComplete, disabled }: { onComplete: () => void
         </span>
       </button>
       <p id="sos-help" className={`mt-2 text-center text-[16px] leading-6 ${hint ? "font-bold text-signal" : "text-paint-muted"}`}>
-        {hint ? t("home.sos.release_early") : keyboard ? "Atau tahan tombol Spasi selama 3 detik." : "Tahan sampai lingkaran penuh."}
+        {hint
+          ? t("home.sos.release_early")
+          : doubleTap
+          ? "Ketuk 2× cepat atau tahan 3 detik."
+          : keyboard
+          ? "Atau tahan tombol Spasi selama 3 detik."
+          : "Tahan sampai lingkaran penuh."}
       </p>
     </div>
   );

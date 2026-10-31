@@ -105,6 +105,7 @@ class TTS:
                 return
 
         if not self.force_fail and self._google_enabled():
+            received = False
             try:
                 async def requests():
                     yield texttospeech.StreamingSynthesizeRequest(
@@ -124,16 +125,16 @@ class TTS:
                     )
 
                 responses = await self._get_client().streaming_synthesize(requests=requests())
-                received = False
                 async for response in responses:
                     if response.audio_content:
                         received = True
                         yield response.audio_content
                 if received:
                     return
-            except Exception:
-                pass  # Any provider/credential failure advances to the next source.
-
+            except Exception as e:
+                log.warning("tts: google streaming failed: %s: %s", type(e).__name__, e)
+                if received:  # mid-stream failure: don't replay the start in another voice
+                    raise TTSUnavailable("Google TTS stream interrupted") from None
             try:
                 response = await self._get_client().synthesize_speech(
                     input=texttospeech.SynthesisInput(text=text),

@@ -33,7 +33,15 @@ async def init_pool() -> None:
     if not url:
         _nodb()
         return
-    _pool = await asyncpg.create_pool(url, min_size=1, max_size=5, statement_cache_size=0)
+    try:
+        _pool = await asyncpg.create_pool(url, min_size=1, max_size=5, statement_cache_size=0)
+    except (OSError, asyncpg.PostgresError) as e:
+        import auth
+        if auth.dev_mode():
+            print(f"db: could not connect to {url} ({e}), running in no-DB mode", file=sys.stderr)
+            _nodb()
+            return
+        raise
     _queue = asyncio.Queue(maxsize=1000)
     _writer = asyncio.create_task(_drain())
 
