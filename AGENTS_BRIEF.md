@@ -15,6 +15,10 @@ Docs live in `../docs/` (relative to this repo root). Repo root = `jembatan-112/
 8. Do NOT git commit. Do NOT run deploys. Do NOT call real paid APIs except where your task says so.
 9. If a Claude Code "Fact-Forcing Gate" hook blocks a file write, state the facts it asks for in one line and retry the same call.
 10. Finish with a report of at most 15 lines: files written, checks run + result, open TODOs. No file dumps.
+11. Pull Request (PR): judul & pesan PR wajib singkat dengan gaya simplified technical Indonesia yang low-level (faktual, padat, tanpa filler). Struktur:
+    - Ringkasan: 1-2 baris problem & solusi.
+    - Perubahan Teknis: poin-poin per file/modul (flag, konfigurasi, dependency).
+    - Verifikasi: perintah uji konkret dan hasil pass/fail.
 
 ## Layout and ownership
 
