@@ -61,3 +61,5 @@ DEPS = {
     "relay.tts": SimpleNamespace(tts=FakeTTS()),
     "geocode": SimpleNamespace(reverse_geocode=reverse_geocode),
 }
+if auth.real_tts():  # J112_REAL_TTS=1: hear the real voice while the rest stays offline
+    del DEPS["relay.tts"]

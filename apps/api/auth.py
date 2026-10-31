@@ -56,6 +56,11 @@ def fake_providers() -> bool:
     return dev_mode() and os.environ.get("J112_FAKE_PROVIDERS") == "1"
 
 
+def real_tts() -> bool:
+    """Fake mode only: keep the real TTS provider (others stay fake)."""
+    return fake_providers() and os.environ.get("J112_REAL_TTS") == "1"
+
+
 def check_dev_flags() -> None:
     """Startup guard: refuse to boot with auth bypass / fake providers outside J112_ENV=dev|test."""
     on = [f for f in DEV_FLAGS if os.environ.get(f)]
