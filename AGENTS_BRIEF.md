@@ -9,7 +9,7 @@ Docs live in `../docs/` (relative to this repo root). Repo root = `jembatan-112/
 2. Match the interfaces below exactly (names, args, return types). The integrator merges by these names.
 3. Language: code identifiers English or as named below; user-facing strings Indonesian (from docs).
 4. No secrets in code. Read env vars listed in `../docs/03_TRD.md` §14.
-5. Python 3.12 syntax (runs on 3.13 locally). Run from `apps/api` with flat imports (`from relay.simplifier import simplify`). Tests in `apps/api/tests/` with pytest, no network (fake external clients).
+5. Python 3.12 syntax (runs on 3.12+ / 3.13+ locally). Can run from repo root via uv (`uv sync`, `uv run pytest`, `uv run uvicorn main:app --app-dir apps/api --port 8000`) or from `apps/api` with flat imports (`from relay.simplifier import simplify`). Root `requirements.txt` forwards to `apps/api/requirements.txt`. Tests in `apps/api/tests/` with pytest, no network (fake external clients).
 6. TypeScript strict. Next.js 15 App Router, React 19, Tailwind 4. No extra UI libraries.
 7. Leave ONE runnable check behind for non-trivial logic (a pytest file or a tiny self-check). No test frameworks beyond pytest/vitest.
 8. Do NOT git commit. Do NOT run deploys. Do NOT call real paid APIs except where your task says so.
@@ -20,7 +20,7 @@ Docs live in `../docs/` (relative to this repo root). Repo root = `jembatan-112/
 
 | Path | Owner task |
 |---|---|
-| `.gitignore`, `LICENSE`, `.env.example`, `README.md`, `supabase/config.toml`, `eval/utterances.csv` | T01 scaffold |
+| `.gitignore`, `LICENSE`, `.env.example`, `README.md`, `pyproject.toml`, `requirements.txt`, `uv.lock`, `supabase/config.toml`, `eval/utterances.csv` | T01 scaffold |
 | `apps/api/config.py`, `apps/api/protocol.py`, `apps/web/lib/protocol.ts`, `apps/web/lib/incidents.ts`, `supabase/migrations/0001_init.sql` | T02 contracts |
 | `apps/web/` skeleton: `package.json`, configs, `app/layout.tsx`, `app/globals.css`, `app/manifest.ts`, `lib/supabase.ts`, `lib/api.ts` | T03 web skeleton |
 | `apps/api/` skeleton: `requirements.txt`, `main.py`, `db.py`, `auth.py`, `crypto.py`, `tests/test_crypto.py`, `tests/test_auth.py` | T04 api core |
