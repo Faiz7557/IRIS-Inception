@@ -1,0 +1,25 @@
+.console-shell { max-width: 1440px; margin: auto; padding: 24px; font-size: 16px; }
+.console-shell h1 { font-size: 26px; font-weight: 700; margin-bottom: 16px; }
+.console-shell h2 { font-size: 19px; font-weight: 700; margin-bottom: 12px; }
+.console-shell h3 { font-weight: 700; margin-top: 16px; }
+.console-shell p { margin-bottom: 12px; }
+.console-shell button, .console-button { display: inline-block; min-height: 48px; padding: 10px 16px; border: 1px solid var(--color-text-muted); border-radius: 12px; cursor: pointer; background: var(--color-surface); color: var(--color-text); text-align: center; }
+.console-shell button:disabled { opacity: .5; cursor: not-allowed; }
+.console-shell .primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+.console-shell .danger { background: var(--color-sos); color: white; border-color: var(--color-sos); }
+.console-shell input:not([type=checkbox]), .console-shell textarea { width: 100%; padding: 12px; border: 1px solid var(--color-text-muted); border-radius: 8px; background: var(--color-surface); }
+.console-shell label { display: block; margin: 12px 0; }
+.console-shell input[type=checkbox] { width: 20px; height: 20px; vertical-align: middle; margin-right: 8px; }
+.console-panel { padding: 20px; background: var(--color-surface); border-radius: 16px; box-shadow: var(--shadow-card); min-width: 0; }
+.console-grid { display: grid; grid-template-columns: minmax(230px,320px) minmax(0,1fr) minmax(230px,320px); gap: 16px; }
+.console-stack { display: grid; gap: 12px; }
+.console-warning { background: var(--color-warning-bg); color: var(--color-warning); padding: 12px; border-radius: 8px; }
+.console-log { display: flex; flex-direction: column; gap: 12px; height: 48vh; overflow: auto; padding: 4px; overflow-wrap: anywhere; }
+.console-bubble { align-self: flex-start; max-width: 90%; padding: 12px; border: 2px solid var(--color-navy); border-radius: 12px; }
+.console-bubble.operator { align-self: flex-end; border-color: var(--incident-fire); }
+.console-meta { color: var(--color-text-muted); font-size: 14px; }
+.console-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--color-bg); margin: 2px; font-size: 13px; }
+.console-shell meter { display: block; width: 100%; height: 24px; }
+.console-card { border: 1px solid var(--color-text-muted); border-radius: 12px; padding: 12px; margin-top: 16px; overflow-wrap: anywhere; }
+@media (max-width: 1100px) { .console-shell { padding: 16px; } .console-grid { grid-template-columns: 230px minmax(0,1fr) 230px; gap: 12px; } .console-panel { padding: 14px; } }
+@media (max-width: 850px) { .console-grid { grid-template-columns: 1fr; } }
