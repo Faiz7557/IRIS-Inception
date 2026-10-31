@@ -28,7 +28,17 @@ test:
 	uv run pytest -q
 
 test\:smoke:
-	uv run python apps/api/tests/smoke_e2e.py
+	@if curl -s http://127.0.0.1:8000/healthz >/dev/null 2>&1; then \
+		uv run python apps/api/tests/smoke_e2e.py; \
+	else \
+		echo "Menjalankan server sementara untuk smoke test..."; \
+		(uv run uvicorn main:app --app-dir apps/api --env-file .env --port 8000 >/dev/null 2>&1 & PID=$$!; \
+		sleep 5; \
+		uv run python apps/api/tests/smoke_e2e.py; \
+		RES=$$?; \
+		kill $$PID 2>/dev/null || true; \
+		exit $$RES); \
+	fi
 
 check\:frontend:
 	cd apps/web && (bun run typecheck || npm run typecheck) && (bun run lint || npm run lint)
