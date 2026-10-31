@@ -92,6 +92,31 @@ def test_no_db_503():
         app.dependency_overrides.clear()
 
 
+def test_conflict_returns_active_call_id_and_ticket_reissue(client, monkeypatch):
+    import orchestrator
+    from types import SimpleNamespace
+    cid = uuid4()
+    fake_db(monkeypatch, lambda *a: _id_row())
+    session = SimpleNamespace(call_id=cid, user_id=UID, state=orchestrator.S.MENDENGAR)
+    monkeypatch.setitem(orchestrator.SESSIONS, cid, session)
+
+    async def conflict(*a):
+        raise ValueError("CONFLICT")
+    monkeypatch.setattr(orchestrator, "start_call", conflict)
+    body = {"incident": "umum", "mode": "latihan", "device_key": str(uuid4()), "client_ts": "2026-10-31T21:14:05Z"}
+    r = client.post("/v1/calls", json=body, headers=H)
+    assert r.status_code == 409 and r.json()["error"]["call_id"] == str(cid)
+    t = client.post(f"/v1/calls/{cid}/ticket", headers=H)
+    assert t.status_code == 200 and auth.verify_ws_ticket(t.json()["ws_ticket"], cid) == UID
+    session.user_id = uuid4()
+    assert client.post(f"/v1/calls/{cid}/ticket", headers=H).status_code == 403
+    assert client.post(f"/v1/calls/{uuid4()}/ticket", headers=H).status_code == 404
+
+
+async def _id_row():
+    return {"id": uuid4(), "last_hour": 0, "last_day": 0}
+
+
 def test_contact_token_is_hashed(client, monkeypatch):
     seen = []
 

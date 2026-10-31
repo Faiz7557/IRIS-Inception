@@ -1,4 +1,5 @@
 """REST endpoints (Schema 4.2) + /ws/contact/{token}. Call WebSockets live in orchestrator."""
+import base64
 import hashlib
 import json
 import logging
@@ -16,7 +17,7 @@ import auth
 import config
 import crypto
 import db
-from notify import contact_hub
+from notify import contact_hub, push_endpoint_ok
 from protocol import CreateCall
 
 log = logging.getLogger("jembatan112.routes")
@@ -161,6 +162,7 @@ async def delete_me(uid: UUID = Depends(auth.current_user)):
     if await db.fetch_one("select 1 as x from public.calls where user_id = $1 and state <> 'SELESAI' limit 1", uid):
         raise _err(409, "CONFLICT", "Selesaikan panggilan yang sedang berjalan sebelum menghapus akun.")
     await db.execute("delete from public.profiles where user_id = $1", uid)  # cascades to all user tables
+    await contact_hub.close(user_id=uid)
     url, key = config.env("SUPABASE_URL"), config.env("SUPABASE_SERVICE_ROLE_KEY")
     auth_deleted = False
     if url and key:
@@ -252,6 +254,7 @@ async def delete_contact(cid: UUID, uid: UUID = Depends(auth.current_user)):
     _need_db()
     if not await db.fetch_one("delete from public.emergency_contacts where id = $1 and user_id = $2 returning id", cid, uid):
         raise _err(404, "NOT_FOUND", "Kontak tidak ditemukan.")
+    await contact_hub.close(contact_id=cid)
 
 
 @router.post("/v1/me/contacts/{cid}/rotate-token")
@@ -261,6 +264,7 @@ async def rotate_token(cid: UUID, uid: UUID = Depends(auth.current_user)):
     if not await db.fetch_one("update public.emergency_contacts set status_token_hash = $3, push_subscription = null, "
                               "push_subscribed_at = null where id = $1 and user_id = $2 returning id", cid, uid, _sha(token)):
         raise _err(404, "NOT_FOUND", "Kontak tidak ditemukan.")
+    await contact_hub.close(contact_id=cid)  # old link's live pages lose access now
     return _share(token)
 
 
@@ -324,10 +328,14 @@ async def _load_profile(uid: UUID) -> dict | None:
 
 @router.post("/v1/calls", status_code=201)
 async def create_call(body: CreateCall, request: Request, uid: UUID = Depends(auth.current_user)):
-    _need_db()
-    device_id = await _upsert_device(uid, body.device_key, request.headers.get("user-agent", "")[:300] or None)
-    await _check_rate(uid, device_id, body.mode)
-    profile = await _load_profile(uid)
+    if db.enabled():
+        device_id = await _upsert_device(uid, body.device_key, request.headers.get("user-agent", "")[:300] or None)
+        await _check_rate(uid, device_id, body.mode)
+        profile = await _load_profile(uid)
+    elif auth.dev_user():  # dev/smoke without DB: no device row, rate limit or profile
+        device_id, profile = None, None
+    else:
+        _need_db()
     try:
         import orchestrator
     except ImportError:
@@ -336,8 +344,22 @@ async def create_call(body: CreateCall, request: Request, uid: UUID = Depends(au
         return await orchestrator.start_call(uid, device_id, body, profile)
     except ValueError as e:
         if str(e) == "CONFLICT":
-            raise _err(409, "CONFLICT", "Anda masih punya panggilan yang belum selesai.") from None
+            active = orchestrator.active_call_id(uid)
+            raise _err(409, "CONFLICT", "Anda masih punya panggilan yang belum selesai.",
+                       call_id=str(active) if active else None) from None
         raise
+
+
+@router.post("/v1/calls/{call_id}/ticket")
+async def call_ticket(call_id: UUID, uid: UUID = Depends(auth.current_user)):
+    """Fresh single-use WS ticket for the call owner (reconnect / resume after reload)."""
+    import orchestrator
+    s = orchestrator.SESSIONS.get(call_id)
+    if s is None or str(s.state) == "SELESAI":
+        raise _err(404, "NOT_FOUND", "Panggilan tidak aktif.")
+    if s.user_id != uid:
+        raise _err(403, "FORBIDDEN", "Panggilan ini bukan milik Anda.")
+    return {"ws_ticket": auth.issue_ws_ticket(call_id, uid, "user"), "ws_url": orchestrator.user_ws_url(call_id)}
 
 
 _CALL_COLS = ("id, mode, incident, state, sos_confirmed_at, answered_at, dispatched_at, ended_at, end_reason, "
@@ -441,10 +463,19 @@ async def contact_push(token: str, body: dict):
     sub = body.get("subscription", body)
     if not isinstance(sub, dict) or not sub.get("endpoint") or not isinstance(sub.get("keys"), dict):
         raise _err(400, "VALIDATION_ERROR", "Langganan notifikasi tidak valid.")
-    sub = {"endpoint": sub["endpoint"], "keys": sub["keys"]}
+    if not push_endpoint_ok(sub["endpoint"]):
+        raise _err(400, "VALIDATION_ERROR", "Layanan notifikasi tidak didukung.")
+    ec = await db.fetch_one("select id, user_id from public.emergency_contacts where status_token_hash = $1",
+                            _sha(token))
+    if not ec:
+        raise _err(404, "NOT_FOUND", "Tautan tidak dikenal.")
+    # landing path for the push click; encrypted because it carries the bearer token
+    path_enc = base64.b64encode(crypto.encrypt(f"/k/{token}", "emergency_contacts", "push_subscription",
+                                               ec["user_id"])).decode()
+    sub = {"endpoint": sub["endpoint"], "keys": sub["keys"], "path_enc": path_enc}
     if not await db.fetch_one("update public.emergency_contacts set push_subscription = $2::jsonb, "
-                              "push_subscribed_at = now() where status_token_hash = $1 returning id",
-                              _sha(token), json.dumps(sub)):
+                              "push_subscribed_at = now() where id = $1 and status_token_hash = $3 returning id",
+                              ec["id"], json.dumps(sub), _sha(token)):
         raise _err(404, "NOT_FOUND", "Tautan tidak dikenal.")
     return {"ok": True}
 
@@ -464,12 +495,12 @@ async def ws_contact(ws: WebSocket, token: str):
         await ws.close(code=4404)
         return
     await ws.accept()
-    uid = ec["user_id"]
-    contact_hub.register(uid, ws)
+    uid, cid = ec["user_id"], ec["id"]
+    contact_hub.register(uid, cid, ws)
     try:
         while True:
             await ws.receive_text()  # contacts only listen; drain pings
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):  # RuntimeError: hub closed us (contact deleted / rotated)
         pass
     finally:
-        contact_hub.unregister(uid, ws)
+        contact_hub.unregister(uid, cid, ws)

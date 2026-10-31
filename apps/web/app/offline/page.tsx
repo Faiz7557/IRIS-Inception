@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { INCIDENTS } from "@/lib/incidents";
 import { loadLocal, type LocalContact, type LocalProfile } from "@/lib/offline-store";
 
-// TODO(integrator): T12 should write the last GPS fix to localStorage "j112_last_gps" as {"lat":..,"lng":..}.
+// Written by lib/geo.ts useGeo on every fix.
 function lastGps(): { lat: number; lng: number } | null {
   try {
     const g = JSON.parse(localStorage.getItem("j112_last_gps") ?? "null");

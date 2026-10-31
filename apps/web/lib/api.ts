@@ -5,6 +5,8 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public status: number,
+    /** Extra fields of the error body, e.g. 409 `call_id`, 429 `retry_after_s`. */
+    public details: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = "ApiError";
@@ -24,14 +26,16 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     let code = "unknown";
     let message = res.statusText;
+    let details: Record<string, unknown> = {};
     try {
-      const j = (await res.json()) as { error?: { code?: string; message?: string } };
+      const j = (await res.json()) as { error?: { code?: string; message?: string } & Record<string, unknown> };
       code = j.error?.code ?? code;
       message = j.error?.message ?? message;
+      details = j.error ?? {};
     } catch {
       /* non-JSON error body */
     }
-    throw new ApiError(code, message, res.status);
+    throw new ApiError(code, message, res.status, details);
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }

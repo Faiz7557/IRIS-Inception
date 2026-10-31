@@ -445,6 +445,70 @@ async def test_tts_failure_falls_back_to_phrase_cache(f):
     assert s.op.ws.bytes[-2][0] == 1 and s.op.ws.bytes[-1] == b"\x02"
 
 
+async def test_history_is_short_question_and_label_masked(f):
+    s, _ = await new_call()
+    await answer(s)
+    await ask(s, "Korban sadar? Tolong jawab cepat ya Bu")
+    tap(s, 0)
+    await until(lambda: s.state is S.MENDENGAR)
+    await ask(s, "Lokasinya di mana?")
+    tap(s, 1, kind="text", text="Depan masjid Al-Falah")
+    await until(lambda: s.state is S.MENDENGAR)
+    await ask(s, "Lokasinya di mana?")
+    tap(s, 0, kind="gps", lat=-7.1, lng=112.2, accuracy_m=12)
+    await until(lambda: s.state is S.MENDENGAR)
+    assert s.history == [
+        {"operator": "Korban sadar? Tolong jawab cepat ya Bu", "action": "ucap", "jawaban": "Ya"},
+        {"operator": "Di mana?", "action": "ketik", "jawaban": "[jawaban teks]"},
+        {"operator": "Di mana?", "action": "kirim_gps", "jawaban": "[lokasi dikirim]"}]
+    assert "masjid" not in str(s.history) and "Mawar" not in str(s.history)
+
+
+async def test_forced_tts_is_per_session_not_singleton(f):
+    s, _ = await new_call()
+    await answer(s)
+    await s.on_console_msg({"type": "force_degradation", "data": {"llm": False, "stt": False, "tts": True}})
+    assert f.tts.force_fail is False
+    await ask(s, "Korban sadar?")
+    n = len(f.tts.spoken)
+    tap(s, 0)
+    await until(lambda: s.state is S.MENDENGAR)
+    assert len(f.tts.spoken) == n and s.degradation_max == 3  # tts.speak skipped, cache path used
+
+
+async def test_tts_failure_without_cache_unlocks_card(f):
+    s, _ = await new_call()
+    await answer(s)
+    await ask(s, "Korban sadar?")
+    f.tts.force_fail = True  # "Ya." is cached; use a non-phrase answer to hit the no-cache path
+    s.active.card.options[0].spoken = "Korbannya sadar penuh."
+    cid = s.active.card.card_id
+    tap(s, 0)
+    await until(lambda: [m["status"] for m in s.user.ws.of("answer_status")][-1:] == ["failed"])
+    await until(lambda: s.state is S.MENUNGGU_JAWABAN)
+    assert s.history == [] and not s.active.answered
+    f.tts.force_fail = False
+    tap(s, 0, card_id=cid)
+    await until(lambda: s.state is S.MENDENGAR)
+    assert s.user.ws.of("answer_status")[-1]["status"] == "spoken" and f.tts.spoken[-1] == "Korbannya sadar penuh."
+
+
+async def test_latihan_skips_contact_broadcasts(f):
+    loc = {"lat": -7.2, "lng": 112.7, "accuracy_m": 8, "captured_at": now()}
+    req = CreateCall(incident="kebakaran", mode="latihan", device_key=uuid4(), location=loc, client_ts=now())
+    body = await orch.start_call(uuid4(), None, req, {})
+    s = orch.SESSIONS[UUID(body["call_id"])]
+    s.user.ws, s.op.ws = FakeWS(), FakeWS()
+    await answer_when_ringing(s)
+    await settle(s)
+    assert f.broadcasts == []
+
+
+async def answer_when_ringing(s):
+    await until(lambda: s.state is S.MEMANGGIL)
+    await answer(s)
+
+
 async def test_l2_stt_forced_sends_operator_speaking_from_rms(f):
     s, _ = await new_call()
     await answer(s)

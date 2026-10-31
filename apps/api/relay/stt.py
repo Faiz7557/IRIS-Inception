@@ -53,7 +53,8 @@ class DeepgramStream:
         self._last_word_end: float | None = None
         self._last_partial = float("-inf")
         self._stream_start = datetime.now(UTC)
-        # TODO(integrator): microphone-level speech signal is needed for the 10 s no-results watchdog.
+        # ponytail: no 10 s no-results watchdog yet (needs mic RMS from orchestrator); STT loss is only
+        # detected via socket errors. Add when live Deepgram shows silent stalls.
 
     async def _connect(self) -> None:
         key = env("DEEPGRAM_API_KEY")

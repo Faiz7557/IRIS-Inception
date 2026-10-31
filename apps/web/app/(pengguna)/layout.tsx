@@ -6,7 +6,7 @@ import { loadProfile } from "@/lib/geo";
 
 // Routes inside (pengguna) that must stay reachable without a session.
 const PUBLIC = ["/mulai", "/masuk", "/offline"];
-// TODO(integrator): T13's /mulai must set this localStorage flag when finished or skipped.
+// Set by app/mulai when the intro is finished or skipped.
 const SEEN_KEY = "j112.seen_intro";
 
 export default function PenggunaLayout({ children }: { children: React.ReactNode }) {

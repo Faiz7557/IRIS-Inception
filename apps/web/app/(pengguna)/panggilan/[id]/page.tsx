@@ -44,6 +44,7 @@ export default function PanggilanPage() {
 
   const [sess, setSess] = useState<Session | null | undefined>(undefined);
   const [conn, setConn] = useState<SocketStatus>("reconnecting");
+  const [authFailed, setAuthFailed] = useState(false);
   const [st, setSt] = useState<StateData>({ state: "MEMANGGIL", attempt: 1, max_attempts: 3 });
   const [opener, setOpener] = useState<{ text: string; speaking: boolean } | null>(null);
   const [opSpeaking, setOpSpeaking] = useState(false);
@@ -94,10 +95,17 @@ export default function PanggilanPage() {
 
   useEffect(() => {
     if (!sess) return;
-    const s = new CallSocket(sess.ws_url, sess.ticket);
+    const s = new CallSocket(sess.ws_url, sess.ticket, () =>
+      api<{ ws_ticket: string }>(`/v1/calls/${id}/ticket`, { method: "POST" })
+        .then((r) => r.ws_ticket)
+        .catch(() => null),
+    );
     sock.current = s;
     const off = [
-      s.onStatus((c) => setConn(c)),
+      s.onStatus((c, code) => {
+        setConn(c);
+        setAuthFailed(c === "closed" && code === 4401);
+      }),
       s.on("state", (m) => {
         setSt(m.data);
         if (m.data.state !== "FALLBACK") setFb(null);
@@ -151,7 +159,7 @@ export default function PanggilanPage() {
       s.close();
       sock.current = null;
     };
-  }, [sess, end]);
+  }, [sess, end, id]);
 
   // New card: report shown, move focus, one 300 ms frame flash + vibrate (not in silent mode).
   useEffect(() => {
@@ -230,7 +238,7 @@ export default function PanggilanPage() {
   const incidentLabel = INCIDENTS.find((i) => i.id === sess.incident)?.label ?? "Umum";
   const phase: CallPhase = fb ? "failed" : startedAt ? "connected" : "dialing";
   const total = card ? card.total : 0;
-  const idx = card ? Math.min(Math.max(1, card.index), total || 1) : 0;
+  const idx = card ? card.index + 1 : 0; // server index is 0-based
   const waiting = st.state === "MENYEDERHANAKAN";
 
   let view: React.ReactNode;
@@ -345,7 +353,15 @@ export default function PanggilanPage() {
         practice={sess.practice} speaking={opSpeaking} onCancel={() => setConfirm(true)}
       />
       {conn === "reconnecting" && <p role="status" className="bg-[color:var(--color-warning-bg)] px-4 py-1 text-[16px] text-[color:var(--color-warning)]">Menyambung ulang…</p>}
-      {conn === "closed" && <p role="alert" className="bg-[color:var(--color-warning-bg)] px-4 py-1 text-[16px] text-[color:var(--color-warning)]">Sambungan terputus.</p>}
+      {authFailed && (
+        <div role="alert" className="space-y-3 bg-[color:var(--color-warning-bg)] px-4 py-3">
+          <p className="text-[18px] font-bold text-[color:var(--color-warning)]">Sesi panggilan tidak bisa diverifikasi. Silakan mulai ulang dari beranda.</p>
+          <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-bold text-white">
+            Kembali ke beranda
+          </Link>
+        </div>
+      )}
+      {conn === "closed" && !authFailed && <p role="alert" className="bg-[color:var(--color-warning-bg)] px-4 py-1 text-[16px] text-[color:var(--color-warning)]">Sambungan terputus.</p>}
       {(deg === 2 || deg === 3) && (
         <p className="px-4 pt-2 text-[16px] text-[color:var(--color-warning)]">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
       )}

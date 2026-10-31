@@ -8,11 +8,15 @@ import secrets
 import time
 from uuid import UUID
 
+import logging
+import re
+
 import jwt
 from fastapi import Header, HTTPException
 
+log = logging.getLogger("jembatan112.auth")
 _jwks: jwt.PyJWKClient | None = None
-_used_tickets: dict[str, int] = {}  # sig -> exp; ponytail: in-memory, per process
+_used_tickets: dict[str, int] = {}  # nonce -> exp; ponytail: in-memory, per process
 _fallback_secret = secrets.token_bytes(32)
 
 TICKET_TTL_S = 60
@@ -23,8 +27,43 @@ def _b64(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
 
 
+_B64 = re.compile(r"[A-Za-z0-9_-]+")
+
+
 def _unb64(s: str) -> bytes:
-    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+    """Strict: only the exact unpadded form _b64 emits (no '=', no junk chars, no stray trailing bits)."""
+    if not _B64.fullmatch(s):
+        raise ValueError("non-canonical base64")
+    b = base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+    if _b64(b) != s:
+        raise ValueError("non-canonical base64")
+    return b
+
+
+# ---- dev flags (J112_ENV gates them; unset = prod) ----
+DEV_FLAGS = ("J112_DEV_USER", "J112_FAKE_PROVIDERS")
+
+
+def dev_mode() -> bool:
+    return (os.environ.get("J112_ENV") or "prod").strip().lower() in ("dev", "test")
+
+
+def dev_user() -> str | None:
+    return os.environ.get("J112_DEV_USER") if dev_mode() else None
+
+
+def fake_providers() -> bool:
+    return dev_mode() and os.environ.get("J112_FAKE_PROVIDERS") == "1"
+
+
+def check_dev_flags() -> None:
+    """Startup guard: refuse to boot with auth bypass / fake providers outside J112_ENV=dev|test."""
+    on = [f for f in DEV_FLAGS if os.environ.get(f)]
+    if on and not dev_mode():
+        raise RuntimeError(f"{', '.join(on)} set but J112_ENV is not dev/test (unset = prod). Refusing to start.")
+    for f in on:
+        log.warning("!!! %s is ACTIVE (J112_ENV=%s). Dev/test only: never expose this server. !!!",
+                    f, os.environ.get("J112_ENV"))
 
 
 def _unauth(msg: str = "Sesi tidak valid. Silakan masuk lagi.") -> HTTPException:
@@ -62,6 +101,8 @@ async def verify_supabase_jwt(token: str) -> UUID:
 
 
 async def current_user(authorization: str | None = Header(None)) -> UUID:
+    if dev := dev_user():  # J112_ENV=dev|test only: every request is this user
+        return UUID(dev)
     if not authorization or not authorization.lower().startswith("bearer "):
         raise _unauth()
     return await verify_supabase_jwt(authorization[7:].strip())
@@ -78,7 +119,7 @@ def _mac(payload: str) -> bytes:
 
 
 def issue_ws_ticket(call_id: UUID, user_id: UUID, role: str) -> str:
-    payload = f"{call_id}|{user_id}|{role}|{int(time.time()) + TICKET_TTL_S}"
+    payload = f"{call_id}|{user_id}|{role}|{int(time.time()) + TICKET_TTL_S}|{secrets.token_urlsafe(16)}"
     return f"{_b64(payload.encode())}.{_b64(_mac(payload))}"
 
 
@@ -89,7 +130,7 @@ def verify_ws_ticket(ticket: str, call_id: UUID) -> UUID:
         payload = _unb64(p64).decode()
         if not hmac.compare_digest(_unb64(sig), _mac(payload)):
             raise PermissionError("bad signature")
-        cid, uid, _role, exp = payload.split("|")
+        cid, uid, _role, exp, nonce = payload.split("|")
         exp = int(exp)
         user_id = UUID(uid)
         ticket_call = UUID(cid)
@@ -104,9 +145,9 @@ def verify_ws_ticket(ticket: str, call_id: UUID) -> UUID:
         raise PermissionError("wrong call")
     for k in [k for k, e in _used_tickets.items() if e < now]:
         del _used_tickets[k]
-    if sig in _used_tickets:
+    if nonce in _used_tickets:  # keyed by the signed nonce, so re-encoded tickets can't replay
         raise PermissionError("ticket reused")
-    _used_tickets[sig] = exp
+    _used_tickets[nonce] = exp
     return user_id
 
 

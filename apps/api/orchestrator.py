@@ -31,6 +31,9 @@ log = logging.getLogger("jembatan112.orchestrator")
 router = APIRouter()
 
 DEPS: dict[str, object] = {}  # module name -> fake (tests); empty = real modules
+if config.env("J112_FAKE_PROVIDERS") == "1":  # dev/smoke: no Deepgram/Anthropic/Google/Nominatim
+    import fakes
+    DEPS.update(fakes.DEPS)
 
 
 def dep(name: str):
@@ -273,6 +276,9 @@ class CallSession:
         await self.op.send("state", {"state": str(self.state), "attempt": self.attempt})
 
     def _contact(self, msg: dict) -> None:
+        if self.mode == "latihan":  # practice calls never reach real contacts
+            return
+        msg = {**msg, "data": {**msg["data"], "call_id": str(self.call_id)}}
         self._bg(dep("notify").contact_hub.broadcast(self.user_id, msg))
 
     def _notify(self, trigger: str):
@@ -321,6 +327,8 @@ class CallSession:
             loop = asyncio.get_running_loop()
             t0, n = None, 0
             try:
+                if self.flags["tts"]:  # forced L3 for this session only; shared singleton untouched
+                    raise RuntimeError("tts forced down")
                 async for chunk in tts.speak(text):
                     if t0 is None:
                         t0 = loop.time()
@@ -542,12 +550,12 @@ class CallSession:
             sm = dep("relay.simplifier")
             start = now()
             try:
-                # TODO(integrator): confirm history item shape expected by simplifier
                 r = await asyncio.wait_for(
                     sm.simplify(utt["text"], self.incident, self.history[-6:], force_fail=self.flags["llm"]),
                     config.LLM_TIMEOUT_S + 1.0)
                 cards, deg = list(r.cards), r.degradation
-                llm = {"llm_status": r.llm_status, "llm_input_tokens": r.input_tokens,
+                status = "skipped" if r.llm_status == "forced" else r.llm_status  # DB enum has no "forced"
+                llm = {"llm_status": status, "llm_input_tokens": r.input_tokens,
                        "llm_output_tokens": r.output_tokens, "llm_cache_read_tokens": r.cache_read_tokens,
                        "llm_start_at": r.llm_start_at, "llm_end_at": r.llm_end_at}
             except Exception as e:  # L1
@@ -690,14 +698,28 @@ class CallSession:
         if self.state is not S.MEMBACAKAN:
             return False
         e, self.speaking = self.speaking, None
+        if e is not None and not ok:  # no audio reached the operator: unlock so the same card can be answered again
+            log.warning("orchestrator: tts failed, unlocking card turn=%s", e.turn_no)
+            if "answer_option_index" in e.answer:
+                await self.user.send("answer_status", {"card_id": str(e.card.card_id),
+                                                       "option_index": e.answer["answer_option_index"],
+                                                       "status": "failed"})
+            e.answered = e.repeat = False
+            e.answer = {}
+            await self._go(S.MENUNGGU_JAWABAN, "tts_done", ok=False)
+            self._timer("wait", config.WAIT_TICK_S, "wait_tick")
+            return
         if e is not None:
             self.last_spoken = e
             if "answer_option_index" in e.answer:
                 await self.user.send("answer_status", {"card_id": str(e.card.card_id),
                                                        "option_index": e.answer["answer_option_index"],
-                                                       "status": "spoken" if ok else "failed"})
-            if not e.repeat:
-                self.history.append({"pertanyaan": e.card.question, "jawaban": e.answer.get("spoken")})
+                                                       "status": "spoken"})
+            if not e.repeat:  # TRD §6.3.2: short question + button label; free text / GPS masked
+                act = e.answer.get("answer_action")
+                self.history.append({"operator": e.card.question, "action": act, "jawaban":
+                                     "[jawaban teks]" if act == "ketik" else
+                                     "[lokasi dikirim]" if act == "kirim_gps" else e.answer.get("answer_label")})
             self._save_turn(e)
         await self._after_turn("tts_done")
 
@@ -785,6 +807,7 @@ class CallSession:
         await self.op.send("ended", data)
         await HUB.send("call_removed", {"call_id": str(self.call_id)}, self.call_id)
         self._contact({"type": "ended", "data": data})
+        self._bg(self._notify("selesai"))
         fields = {"ended_at": t, "end_reason": reason, "attempt_count": self.total,
                   "degradation_max": self.degradation_max}
         if self.location is not None:  # coarsen at rest (Schema §2.5)
@@ -848,7 +871,6 @@ class CallSession:
 
     async def _on_force_degradation(self, llm: bool, stt: bool, tts: bool):
         self.flags = {"llm": llm, "stt": stt, "tts": tts}
-        dep("relay.tts").tts.force_fail = tts
         self._log("force_degradation", self.state, self.state, llm=llm, stt=stt, tts=tts)
         if stt:
             await self._degrade(2, "forced")
@@ -917,10 +939,18 @@ async def start_call(user_id: UUID, device_id: UUID | None, req: CreateCall, pro
     n = dep("notify")
     n.console_sms_sink = _sms_sink
     s._bg(s._notify("panggilan_dibuat"))
-    base = (config.env("NEXT_PUBLIC_WS_URL") or "").rstrip("/")  # TODO(integrator): API-side public WS base
-    return {"call_id": str(call_id), "state": str(S.MEMANGGIL), "ws_url": f"{base}/ws/calls/{call_id}/user",
+    return {"call_id": str(call_id), "state": str(S.MEMANGGIL), "ws_url": user_ws_url(call_id),
             "ws_ticket": auth.issue_ws_ticket(call_id, user_id, "user"), "opener_text": opener_text,
             "practice": req.mode == "latihan"}
+
+
+def user_ws_url(call_id: UUID) -> str:
+    base = config.env("PUBLIC_WS_URL") or config.env("NEXT_PUBLIC_WS_URL") or "ws://localhost:8000"
+    return f"{base.rstrip('/')}/ws/calls/{call_id}/user"
+
+
+def active_call_id(user_id: UUID) -> UUID | None:
+    return next((s.call_id for s in SESSIONS.values() if s.user_id == user_id and s.state is not S.SELESAI), None)
 
 
 async def active_calls() -> list[dict]:
@@ -944,7 +974,7 @@ async def ws_user(ws: WebSocket, call_id: UUID, ticket: str = ""):
         uid = auth.verify_ws_ticket(ticket, call_id)
     except PermissionError:
         return await ws.close(code=4401)
-    # TODO(integrator): tickets are single use; reconnect (resume) needs a ticket re-issue route
+    # tickets are single use; reconnects fetch a fresh one via POST /v1/calls/{id}/ticket (routes.py)
     s = await _lookup(ws, call_id)
     if s is None:
         return

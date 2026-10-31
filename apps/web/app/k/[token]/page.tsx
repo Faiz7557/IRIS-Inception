@@ -39,20 +39,36 @@ export default function KontakPage({ params }: { params: Promise<{ token: string
     setIos(/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia("(display-mode: standalone)").matches);
     let ws: WebSocket | undefined;
     let closed = false;
-    api<Summary>(`/v1/contact/${encodeURIComponent(token)}`)
+    let callId: string | null = null; // call the page currently shows; a different id => new emergency
+    let opened = false;
+    const load = () =>
+      api<Summary>(`/v1/contact/${encodeURIComponent(token)}`).then((d) => {
+        if (!closed) setData(d);
+        return d;
+      });
+    load()
       .then((d) => {
-        if (closed) return;
-        setData(d);
-        if (!d.ws_url) return;
+        if (closed || !d.ws_url) return;
         ws = new WebSocket(d.ws_url);
+        ws.onopen = () => {
+          if (opened) load().catch(() => {}); // reconnect: we may have missed updates
+          opened = true;
+        };
         ws.onmessage = (ev) => {
           let m: { type?: string; data?: Record<string, unknown> };
           try { m = JSON.parse(ev.data as string); } catch { return; }
+          const x = m.data ?? {};
+          const id = typeof x.call_id === "string" ? x.call_id : null;
+          const fresh = id !== null && callId !== null && id !== callId;
+          if (id) callId = id;
+          if (fresh || (m.type === "state" && (x.state === "SIAGA" || x.state === "MEMANGGIL"))) {
+            load().catch(() => {});
+            return;
+          }
           setData((cur) => {
             if (!cur) return cur;
             const now = new Date().toISOString();
             const base: ActiveCall = cur.active_call ?? { incident: "umum", state: "SIAGA" };
-            const x = m.data ?? {};
             if (m.type === "state") return { ...cur, active_call: { ...base, state: String(x.state ?? base.state) } };
             if (m.type === "dispatch") return { ...cur, active_call: { ...base, dispatched_at: now } };
             if (m.type === "fallback") return { ...cur, active_call: { ...base, state: "FALLBACK" } };

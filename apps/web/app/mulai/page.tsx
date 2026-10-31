@@ -12,7 +12,7 @@ export default function Mulai() {
   const r = useRouter();
   const [i, setI] = useState(0);
   const done = () => {
-    try { localStorage.setItem("j112_onboarded", "1"); } catch { /* ignore */ }
+    try { localStorage.setItem("j112.seen_intro", "1"); } catch { /* ignore */ }
     r.replace("/masuk");
   };
   const last = i === STEPS.length - 1;

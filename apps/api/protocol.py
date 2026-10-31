@@ -77,7 +77,7 @@ class LlmOutput(BaseModel):
     kartu: list[LlmCard]
 
 
-# TODO(integrator): apply the semantic LLM validators from TRD §6.3.4 (outside T02's reading scope).
+# Semantic LLM validators (TRD §6.3.4) live in relay/simplifier.py validate_output.
 
 
 class Envelope(BaseModel):

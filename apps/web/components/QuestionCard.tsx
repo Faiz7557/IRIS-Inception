@@ -28,7 +28,7 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
   const l1 = card.degradation === 1;
   const instr = card.kind === "instruksi";
   const grid = card.kind === "angka";
-  const idx = Math.max(1, card.index);
+  const idx = card.index + 1; // server index is 0-based
   const titleId = `q-${card.card_id}`;
 
   return (

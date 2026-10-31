@@ -70,6 +70,11 @@ def test_gps_over_100m_uses_profile_address_with_warning():
     assert "Terjadi kebakaran di Jl. Mawar 1, Sukun, Malang, lokasi GPS tidak akurat." in text
 
 
+def test_no_gps_uses_profile_address_with_unavailable():
+    text = build_opener(FULL_PROFILE, "kebakaran", None, None)
+    assert "Terjadi kebakaran di Jl. Mawar 1, Sukun, Malang, lokasi GPS tidak tersedia." in text
+
+
 def test_gps_good_without_address_text_gives_coordinates_only():
     text = build_opener(FULL_PROFILE, "kebakaran", LOC_GOOD, None)
     assert "Terjadi kebakaran di koordinat -7,25752, 112,75213." in text

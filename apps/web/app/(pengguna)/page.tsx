@@ -48,7 +48,8 @@ export default function BerandaPage() {
     if (busy) return;
     setBusy(true);
     setErr(null);
-    if (!navigator.onLine) return void router.push("/offline");
+    const offline = `/offline?kejadian=${incident ?? "umum"}`;
+    if (!navigator.onLine) return void router.push(offline);
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 5000);
     const body: CreateCall = {
@@ -74,13 +75,24 @@ export default function BerandaPage() {
       router.push(`/panggilan/${r.call_id}`);
     } catch (e) {
       if (e instanceof ApiError) {
-        // TODO(integrator): ApiError drops extra body fields; 409 id is read from the message if present.
-        const id = e.status === 409 ? /[0-9a-f]{8}-[0-9a-f-]{27}/i.exec(e.message)?.[0] : null;
-        if (id) return void router.push(`/panggilan/${id}`);
+        // E1: a call is still active -> fetch a fresh ticket for it and open it.
+        const id = e.status === 409 && typeof e.details.call_id === "string" ? e.details.call_id : null;
+        if (id) {
+          try {
+            const tk = await api<{ ws_ticket: string; ws_url: string }>(`/v1/calls/${id}/ticket`, { method: "POST" });
+            sessionStorage.setItem(
+              `j112.ticket.${id}`,
+              JSON.stringify({ ticket: tk.ws_ticket, ws_url: tk.ws_url, opener: "", practice, incident: body.incident }),
+            );
+          } catch {
+            /* the call page shows a recoverable error */
+          }
+          return void router.push(`/panggilan/${id}`);
+        }
         setErr(e.status === 409 ? "Panggilan sebelumnya masih berjalan." : e.status === 429 ? "Terlalu sering. Coba lagi nanti." : e.message);
         setBusy(false);
       } else {
-        router.push("/offline"); // network failure or 5 s timeout
+        router.push(offline); // network failure or 5 s timeout
       }
     } finally {
       clearTimeout(timer);

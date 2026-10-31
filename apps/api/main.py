@@ -1,6 +1,7 @@
 import importlib
 import logging
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 
@@ -10,9 +11,43 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+import auth
 import db
 
 log = logging.getLogger("jembatan112")
+
+auth.check_dev_flags()  # before routers import orchestrator (it reads J112_FAKE_PROVIDERS at import)
+
+
+class RedactSecrets(logging.Filter):
+    """Strips WS tickets / contact tokens from uvicorn access + websocket log lines."""
+    _RX = (re.compile(r"((?:ticket|token)=)[^&\s\"']+", re.I),
+           re.compile(r"(/(?:ws|v1)/contact/|/k/)[^/?\s\"']+"))
+
+    def _clean(self, v):
+        if isinstance(v, str):
+            for rx in self._RX:
+                v = rx.sub(r"\1[REDACTED]", v)
+        return v
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = self._clean(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(self._clean(a) for a in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {k: self._clean(a) for k, a in record.args.items()}
+        return True
+
+
+_redact = RedactSecrets()
+
+
+def install_log_redaction() -> None:
+    for name in ("uvicorn.access", "uvicorn.error"):
+        logging.getLogger(name).addFilter(_redact)  # idempotent: same instance
+
+
+install_log_redaction()
 
 _CODES = {400: "VALIDATION_ERROR", 401: "UNAUTHENTICATED", 403: "FORBIDDEN", 404: "NOT_FOUND",
           409: "CONFLICT", 422: "CONSENT_REQUIRED", 429: "RATE_LIMITED", 503: "UPSTREAM_UNAVAILABLE"}
@@ -24,10 +59,12 @@ def err(status: int, code: str, message: str, headers: dict | None = None, **ext
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    install_log_redaction()  # again, in case uvicorn reconfigured logging after import
     await db.init_pool()
     try:
-        from relay.tts import tts
-        await tts.startup()
+        if not auth.fake_providers():  # fake mode: no Google calls at boot
+            from relay.tts import tts
+            await tts.startup()
     except Exception as e:
         log.warning("tts.startup skipped: %s: %s", type(e).__name__, e)
     yield

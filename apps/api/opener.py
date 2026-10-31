@@ -25,7 +25,7 @@ def build_opener(profile: dict | None, incident: str, location: dict | None, add
         coords = f"koordinat {format_coord(location['lat'])}, {format_coord(location['lng'])}"
         where = f"{address_text}, {coords}" if address_text else coords
     elif profile.get("address"):
-        where = f"{profile['address']}, lokasi GPS tidak akurat"
+        where = f"{profile['address']}, lokasi GPS {'tidak akurat' if location else 'tidak tersedia'}"
     else:
         where = "lokasi belum diketahui"
 

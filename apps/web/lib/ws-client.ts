@@ -6,12 +6,14 @@ export type SocketStatus = "open" | "reconnecting" | "closed";
 const ACK_TYPES = new Set(["card", "dispatch", "fallback", "ended"]);
 const STAMPED = new Set(["tap", "gps", "text", "repeat", "card_shown"]);
 const FATAL = new Set([4404, 4409, 4410]);
+const MAX_TICKET_REFRESH = 2; // 4401 retries with a fresh ticket before giving up
 const BACKOFF_MS = [500, 1000, 2000, 4000];
 
 /**
  * Call channel: JSON envelope, seq tracking + auto-ack, resume on (re)connect, backoff 0.5/1/2/4 s, ping 10 s.
- * TODO(integrator): tickets are single-use (60 s). Pass `getTicket` to fetch a fresh one on reconnect;
- * without it the old ticket is retried (works only if the server tolerates reuse).
+ * Tickets are single-use (60 s): `getTicket` (POST /v1/calls/{id}/ticket) fetches a fresh one before every
+ * reconnect. A socket counts as authenticated only after the first server message (onopen precedes ticket
+ * validation); repeated 4401 closes stop after MAX_TICKET_REFRESH refreshes with a terminal "closed" 4401.
  */
 export class CallSocket {
   private ws: WebSocket | null = null;
@@ -19,7 +21,7 @@ export class CallSocket {
   private statusHandlers = new Set<(s: SocketStatus, code?: number) => void>();
   private lastSeq = 0;
   private tries = 0;
-  private everOpen = false;
+  private authFails = 0;
   private stopped = false;
   private outbox: string[] = [];
   private pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -81,18 +83,22 @@ export class CallSocket {
     if (this.stopped) return;
     const ws = new WebSocket(`${this.url}?ticket=${encodeURIComponent(this.ticket)}`);
     this.ws = ws;
+    let authed = false;
     ws.onopen = () => {
-      this.tries = 0;
-      this.everOpen = true;
-      this.emit("open");
+      this.raw({ v: 1, type: "ping", data: { client_ts: new Date().toISOString() } }); // first reply proves the ticket
       this.raw({ v: 1, type: "resume", data: { last_seq: this.lastSeq } });
-      this.outbox.splice(0).forEach((s) => ws.send(s));
       this.pingTimer = setInterval(
         () => this.raw({ v: 1, type: "ping", data: { client_ts: new Date().toISOString() } }),
         10_000,
       );
     };
     ws.onmessage = (ev) => {
+      if (!authed) {
+        authed = true;
+        this.tries = this.authFails = 0;
+        this.emit("open");
+        this.outbox.splice(0).forEach((s) => ws.send(s));
+      }
       let m: Msg;
       try {
         m = JSON.parse(String(ev.data)) as Msg;
@@ -110,8 +116,8 @@ export class CallSocket {
       if (this.pingTimer) clearInterval(this.pingTimer);
       this.pingTimer = null;
       if (this.stopped) return;
-      // 4401 is final only on the very first connect (bad ticket); later it may just be ticket reuse.
-      if (FATAL.has(ev.code) || (ev.code === 4401 && !this.everOpen)) {
+      if (ev.code === 4401 && !authed) this.authFails++;
+      if (FATAL.has(ev.code) || (ev.code === 4401 && (!this.getTicket || this.authFails > MAX_TICKET_REFRESH))) {
         this.stopped = true;
         this.emit("closed", ev.code);
         return;

@@ -16,6 +16,11 @@ export function useGeo(): { fix: GeoFix | null; error: string | null } {
     const id = navigator.geolocation.watchPosition(
       (p) => {
         setError(null);
+        try {
+          localStorage.setItem("j112_last_gps", JSON.stringify({ lat: p.coords.latitude, lng: p.coords.longitude }));
+        } catch {
+          /* storage blocked: /offline SMS says GPS unavailable */
+        }
         setFix({
           lat: p.coords.latitude,
           lng: p.coords.longitude,
