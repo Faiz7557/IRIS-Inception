@@ -171,30 +171,35 @@ Proporsi dilaporkan dengan interval Wilson 95%. Kasus gagal akan dicantumkan di 
 
 ## Cara menjalankan lokal
 
-Terdapat dua mode untuk menjalankan aplikasi di lingkungan lokal:
+Repositori menyediakan `Makefile` untuk mempermudah menjalankan seluruh alur:
+
+```bash
+make help            # Lihat daftar seluruh perintah
+make dev             # Jalankan backend (8000) & frontend (3000) sekaligus dalam 1 terminal
+make dev:backend     # Jalankan backend FastAPI saja (port 8000)
+make dev:frontend    # Jalankan frontend Next.js saja (port 3000)
+make test            # Jalankan 207 unit tests backend
+make test:smoke      # Jalankan simulasi panggilan e2e (smoke test)
+make check:frontend  # Jalankan typecheck & linter frontend
+```
 
 ### Mode A: Uji Cepat / Offline (Direkomendasikan untuk Juri & Dev Lokal)
 Mode ini **tidak memerlukan kunci API berbayar** dan **tidak memerlukan database eksternal/Docker**. Simulator internal (`J112_FAKE_PROVIDERS=1`) menangani relay AI dan state machine secara instan.
 
-#### 1. Jalankan Backend (Port 8000)
-Dari root repositori, gunakan perintah satu baris berikut:
+#### 1. Jalankan Aplikasi
+Cukup jalankan:
 ```bash
-J112_ENV=dev J112_FAKE_PROVIDERS=1 J112_DEV_USER=00000000-0000-0000-0000-000000000001 CONSOLE_PASSCODE=smoke CONSOLE_JWT_SECRET=dev-jwt-secret-minimum-32-chars-long WS_TICKET_SECRET=dev-ws-secret-minimum-32-chars-long PUBLIC_WS_URL=ws://127.0.0.1:8000 uv run uvicorn main:app --app-dir apps/api --port 8000
+make dev
 ```
-*Verifikasi backend:* Buka `http://127.0.0.1:8000/healthz` (akan merespons `{"ok":true,"db":false}`).
+*Atau jalankan di terminal terpisah:*
+- Terminal 1: `make dev:backend`
+- Terminal 2: `make dev:frontend`
+
+*Verifikasi backend:* Buka `http://127.0.0.1:8000/healthz` (merespons `{"ok":true,"db":false}`).
 
 *Uji otomatis alur panggilan (opsional):*
 ```bash
-uv run python apps/api/tests/smoke_e2e.py   # Output: SMOKE PASS
-```
-
-#### 2. Jalankan Frontend Web / PWA (Port 3000)
-Buka terminal baru:
-```bash
-cd apps/web
-cp .env.example .env.local
-npm install   # atau: bun install
-npm run dev   # atau: bun run dev
+make test:smoke      # Output: SMOKE PASS
 ```
 
 Buka di browser:
