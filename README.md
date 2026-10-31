@@ -10,13 +10,13 @@ Belum dilampirkan. Tangkapan layar Beranda, SOS, Kartu, dan Status akan ditambah
 
 ## Cara menguji (untuk juri)
 
-| Item | Nilai |
-|---|---|
-| URL PWA (ponsel) | `TODO: URL Vercel` |
-| URL konsol operator | `TODO: URL Vercel/konsol` |
-| Sandi konsol | `TODO` |
-| Nomor uji OTP | `081200000001` (ditulis `+62 6281200000001` di sistem) |
-| Kode OTP | `112112` |
+| Item | Nilai (Produksi / Vercel) | Nilai (Pengujian Lokal) |
+|---|---|---|
+| URL PWA (ponsel) | `TODO: URL Vercel` | `http://localhost:3000` |
+| URL konsol operator | `TODO: URL Vercel/konsol` | `http://localhost:3000/konsol` |
+| Sandi konsol | `TODO` | `smoke` |
+| Nomor uji OTP | `081200000001` (ditulis `+62 6281200000001` di sistem) | `081200000001` |
+| Kode OTP | `112112` | `112112` |
 
 Saran: pakai dua perangkat (ponsel untuk PWA, laptop untuk konsol), atau dua jendela browser. Pakai headset di konsol agar suara sintetis tidak tertangkap mikrofon.
 
@@ -171,73 +171,88 @@ Proporsi dilaporkan dengan interval Wilson 95%. Kasus gagal akan dicantumkan di 
 
 ## Cara menjalankan lokal
 
-### 1. Backend (Python 3.12+)
+Terdapat dua mode untuk menjalankan aplikasi di lingkungan lokal:
 
+### Mode A: Uji Cepat / Offline (Direkomendasikan untuk Juri & Dev Lokal)
+Mode ini **tidak memerlukan kunci API berbayar** dan **tidak memerlukan database eksternal/Docker**. Simulator internal (`J112_FAKE_PROVIDERS=1`) menangani relay AI dan state machine secara instan.
+
+#### 1. Jalankan Backend (Port 8000)
+Dari root repositori, gunakan perintah satu baris berikut:
+```bash
+J112_ENV=dev J112_FAKE_PROVIDERS=1 J112_DEV_USER=00000000-0000-0000-0000-000000000001 CONSOLE_PASSCODE=smoke CONSOLE_JWT_SECRET=dev-jwt-secret-minimum-32-chars-long WS_TICKET_SECRET=dev-ws-secret-minimum-32-chars-long PUBLIC_WS_URL=ws://127.0.0.1:8000 uv run uvicorn main:app --app-dir apps/api --port 8000
+```
+*Verifikasi backend:* Buka `http://127.0.0.1:8000/healthz` (akan merespons `{"ok":true,"db":false}`).
+
+*Uji otomatis alur panggilan (opsional):*
+```bash
+uv run python apps/api/tests/smoke_e2e.py   # Output: SMOKE PASS
+```
+
+#### 2. Jalankan Frontend Web / PWA (Port 3000)
+Buka terminal baru:
+```bash
+cd apps/web
+cp .env.example .env.local
+npm install   # atau: bun install
+npm run dev   # atau: bun run dev
+```
+
+Buka di browser:
+- **PWA Pengguna:** [http://localhost:3000](http://localhost:3000)
+  - Pilih jenis kejadian (misal: **Kebakaran**).
+  - Tahan tombol **SOS** selama 3 detik (atau ketuk 2× cepat jika pengaturan diaktifkan).
+  - Tekan lama judul `Darurat apa?` selama 2 detik untuk mengaktifkan **Mode Senyap**.
+- **Konsol Operator:** [http://localhost:3000/konsol](http://localhost:3000/konsol)
+  - Masukkan sandi: `smoke`
+  - Tekan **Angkat** saat panggilan darurat masuk.
+  - Kirim pertanyaan operator melalui teks atau suara, dan respons kartu interaktif akan muncul di layar PWA pengguna.
+
+---
+
+### Mode B: Layanan Penuh (Live AI & Supabase)
+Mode ini menghubungkan aplikasi ke penyedia AI riil dan database Supabase hosted/lokal.
+
+#### 1. Konfigurasi Variabel Lingkungan
 Salin template environment di root:
 ```bash
 cp .env.example .env
 ```
+Lengkapi variabel lingkungan:
+- `ANTHROPIC_API_KEY`: Kunci API Claude 3.5 Haiku.
+- `DEEPGRAM_API_KEY`: Kunci API Deepgram Nova-3 id.
+- `ELEVENLABS_API_KEY`: Kunci API ElevenLabs Flash v2.5 (TTS utama; jika kosong, sistem otomatis memakai Google Cloud TTS).
+- `GOOGLE_APPLICATION_CREDENTIALS_JSON`: Kredensial base64 Google Cloud Service Account (TTS cadangan atau utama bila ElevenLabs tidak diset).
+- `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`: Kredensial database Supabase.
+- `PROFILE_ENC_KEY_V1`, `WS_TICKET_SECRET`, `CONSOLE_PASSCODE`, `CONSOLE_JWT_SECRET`.
 
-**Opsi A: Menggunakan `uv` (Direkomendasikan):**
+#### 2. Migrasi Database Supabase
 ```bash
-# Dari root repo:
-uv sync
+supabase db push
+# atau jalankan skrip supabase/migrations/0001_init.sql di SQL Editor Supabase Dashboard
+```
+
+#### 3. Jalankan Aplikasi
+```bash
+# Terminal 1 (Backend API):
 uv run uvicorn main:app --app-dir apps/api --port 8000
 
-# Atau dari dalam folder apps/api:
-cd apps/api
-uv run uvicorn main:app --port 8000
-```
-
-**Opsi B: Menggunakan virtualenv & `pip` standar:**
-```bash
-# Dari root repo:
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --app-dir apps/api --port 8000
-
-# Atau dari dalam folder apps/api:
-cd apps/api
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --port 8000
-```
-
-### 2. Frontend Web (Next.js / PWA)
-
-Buka terminal baru dan masuk ke folder `apps/web`:
-```bash
+# Terminal 2 (Frontend Web):
 cd apps/web
-npm install
+cp .env.example .env.local
+# Sesuaikan NEXT_PUBLIC_SUPABASE_URL & NEXT_PUBLIC_SUPABASE_ANON_KEY di .env.local
 npm run dev
 ```
-Set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
-Supabase lokal (`npx supabase start` dari root repo, butuh Docker; set `SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN=placeholder`). Nomor uji `081200000001` memakai kode `112112`. Nomor lain juga bisa: OTP tidak dikirim lewat SMS, tetapi disimpan oleh hook `dev_send_sms` (`supabase/seed.sql`). Baca kodenya dengan:
+---
 
-```
-docker exec supabase_db_jembatan-112 psql -U postgres -tAc "select phone, otp from public.dev_sms_outbox order by created_at desc limit 3"
-```
-
-Hook ini hanya untuk lokal. Proyek Supabase hosted tetap butuh penyedia SMS sungguhan (lihat K4).
-
-Mode fake-provider (tanpa jaringan dan tanpa database, hanya untuk dev):
-
-```
-J112_ENV=dev J112_FAKE_PROVIDERS=1 J112_DEV_USER=<uuid apa pun> CONSOLE_PASSCODE=smoke CONSOLE_JWT_SECRET=<x> WS_TICKET_SECRET=<y> \
-PUBLIC_WS_URL=ws://127.0.0.1:8000 uvicorn main:app --port 8000
-python tests/smoke_e2e.py      # dari apps/api: satu panggilan penuh
-```
-
-Uji unit:
+### Pengujian Otomatis (Test Suite)
 ```bash
-uv run pytest           # dari root repo
-# atau:
-cd apps/api && pytest   # dari folder apps/api
-```
+# Full backend test suite (206 tests):
+uv run pytest -q
 
+# Frontend typecheck & lint:
+cd apps/web && bun run typecheck && bun run lint
+```
 ## Kontribusi tiap anggota
 
 - **Faiz Iqbal I'tishom:** Backend dan AI (orkestrator, relay STT/LLM/TTS, autentikasi, enkripsi, skrip evaluasi).
