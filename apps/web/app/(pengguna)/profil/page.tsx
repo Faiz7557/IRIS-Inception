@@ -24,10 +24,12 @@ export default function Profil() {
   const [preview, setPreview] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [baru, setBaru] = useState(false); // first run after sign-in: only what the operator needs to find you
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setF({ ...f, [k]: e.target.value });
 
   useEffect(() => {
+    setBaru(new URLSearchParams(window.location.search).has("baru"));
     api<ProfileRes>("/v1/me/profile")
       .then((d) => {
         const p = d.profile;
@@ -48,6 +50,7 @@ export default function Profil() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!f.display_name.trim()) return setErr("Nama panggilan wajib diisi.");
+    if (baru && !f.address.trim()) return setErr("Alamat wajib diisi supaya petugas bisa menemukan Anda.");
     setBusy(true);
     setErr("");
     try {
@@ -58,10 +61,13 @@ export default function Profil() {
         });
         setHadConsent(consent);
       }
-      const body = { ...f, ...(consent ? {} : { blood_type: "", medical_notes: "" }), segment: "A" };
+      // Empty fields go as null: the API rejects "" for blood_type (enum) and display_name (min length 1).
+      const fields = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim() || null]));
+      const body = { ...fields, ...(consent ? {} : { blood_type: null, medical_notes: null }), segment: "A" };
       const d = await api<ProfileRes>("/v1/me/profile", { method: "PUT", body: JSON.stringify(body) });
       setPreview(d.opener_preview ?? "");
       await saveLocalProfile({ display_name: f.display_name, address: f.address, landmark: f.landmark }).catch(() => {});
+      if (baru) return void r.replace("/");
     } catch (x) {
       setErr(x instanceof ApiError ? x.message : "Gagal menyimpan. Coba lagi.");
     }
@@ -70,7 +76,8 @@ export default function Profil() {
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-3xl font-bold">Profil darurat</h1>
+      <h1 className="text-3xl font-bold">{baru ? "Di mana Anda tinggal?" : "Profil darurat"}</h1>
+      {baru && <p className="text-lg">Petugas memakai alamat ini kalau GPS tidak ada.</p>}
       <form onSubmit={save} className="space-y-4">
         <label className="block">
           <span className="font-bold">Nama panggilan</span>
@@ -84,24 +91,28 @@ export default function Profil() {
           <span className="font-bold">Patokan</span>
           <input className={input} value={f.landmark} onChange={set("landmark")} />
         </label>
-        <label className="flex min-h-12 items-start gap-3">
-          <input type="checkbox" className="mt-1 size-6" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-          <span>{COPY["consent.medical"]}</span>
-        </label>
-        <label className="block">
-          <span className="font-bold">Golongan darah</span>
-          <select className={input} value={f.blood_type} onChange={set("blood_type")} disabled={!consent}>
-            {BLOOD.map((b) => (
-              <option key={b} value={b}>
-                {b || "Tidak diisi"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="font-bold">Kondisi medis</span>
-          <textarea className={input} rows={3} value={f.medical_notes} onChange={set("medical_notes")} disabled={!consent} />
-        </label>
+        {!baru && (
+          <>
+            <label className="flex min-h-12 items-start gap-3">
+              <input type="checkbox" className="mt-1 size-6" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span>{COPY["consent.medical"]}</span>
+            </label>
+            <label className="block">
+              <span className="font-bold">Golongan darah</span>
+              <select className={input} value={f.blood_type} onChange={set("blood_type")} disabled={!consent}>
+                {BLOOD.map((b) => (
+                  <option key={b} value={b}>
+                    {b || "Tidak diisi"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="font-bold">Kondisi medis</span>
+              <textarea className={input} rows={3} value={f.medical_notes} onChange={set("medical_notes")} disabled={!consent} />
+            </label>
+          </>
+        )}
         <p role="alert" className="text-[var(--color-sos)]">
           {err}
         </p>
@@ -109,10 +120,10 @@ export default function Profil() {
           disabled={busy}
           className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-bold text-white disabled:opacity-60"
         >
-          {busy ? "Menyimpan…" : "Simpan"}
+          {busy ? "Menyimpan…" : baru ? "Simpan dan mulai" : "Simpan"}
         </button>
       </form>
-      {preview && (
+      {preview && !baru && (
         <section className="rounded-xl bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
           <h2 className="font-bold">Yang akan didengar operator</h2>
           <p className="mt-2">{preview}</p>

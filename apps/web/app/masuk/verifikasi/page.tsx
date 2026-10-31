@@ -38,10 +38,11 @@ export default function Verifikasi() {
     } catch { /* device registration is retried on next login */ }
     sessionStorage.removeItem("j112_phone");
     try {
-      await api("/v1/me/profile");
-      r.replace("/");
+      // New users get 200 with an empty profile, not 404: without an address the opener says "lokasi belum diketahui".
+      const d = await api<{ profile?: { address?: string } }>("/v1/me/profile");
+      r.replace(d.profile?.address?.trim() ? "/" : "/profil?baru=1");
     } catch (e) {
-      if (e instanceof ApiError && e.status === 404) r.replace("/profil"); else r.replace("/");
+      if (e instanceof ApiError && e.status === 404) r.replace("/profil?baru=1"); else r.replace("/");
     }
   }
 

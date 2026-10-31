@@ -49,18 +49,6 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
         )}
       </div>
 
-      {!l1 && card.transcript && (
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-label={`Kata operator: ${card.transcript}`}
-          onClick={() => setOpen(!open)}
-          className={`w-full rounded-[12px] bg-[color:var(--color-bg)] p-3 text-left text-[16px] leading-6 text-[color:var(--color-text-muted)] ${open ? "" : "line-clamp-3"}`}
-        >
-          {card.transcript}
-        </button>
-      )}
-
       {instr && (
         <div className="flex justify-center text-[color:var(--color-warning)]" role="img" aria-label={card.question}>
           <CheckIcon size={96} />
@@ -105,6 +93,25 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
           );
         })}
       </div>
+
+      {/* Raw operator speech is long spoken Indonesian, the hardest thing to read in a panic: folded below the answers. */}
+      {!l1 && card.transcript && (
+        <div>
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className="min-h-[44px] text-[16px] font-bold text-[color:var(--color-accent)]"
+          >
+            {open ? "Tutup kata operator" : "Lihat kata operator"}
+          </button>
+          {open && (
+            <p className="rounded-[12px] bg-[color:var(--color-bg)] p-3 text-[16px] leading-6 text-[color:var(--color-text-muted)]">
+              {card.transcript}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3">
         <button

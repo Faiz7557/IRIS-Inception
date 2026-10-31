@@ -12,7 +12,7 @@ import { CallHeader, type CallPhase } from "@/components/CallHeader";
 import { QuestionCard, type AnswerStatus } from "@/components/QuestionCard";
 import { ShortInputSheet } from "@/components/ShortInputSheet";
 import { HelpTimeline } from "@/components/HelpTimeline";
-import { CloseIcon, SosIcon, WaveIcon } from "@/components/icons";
+import { CloseIcon, IncidentIcon, SosIcon, WaveIcon } from "@/components/icons";
 
 const CSS = `
 .call-flash{position:fixed;inset:0;border:8px solid var(--color-primary);pointer-events:none;z-index:60;animation:jflash 300ms ease-out forwards}
@@ -22,6 +22,18 @@ const CSS = `
 @keyframes jfade{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion: reduce){.card-in{animation-name:jfade}}
 `;
+
+/** The opener is ~35 words of spoken Indonesian: available, but folded so a panicked user sees one short line. */
+function OpenerText({ text }: { text: string }) {
+  return (
+    <details className="rounded-[12px] bg-[color:var(--color-surface)] p-3 text-left">
+      <summary className="min-h-[44px] cursor-pointer content-center text-[16px] font-bold text-[color:var(--color-accent)]">
+        Lihat pesan untuk operator
+      </summary>
+      <p className="mt-2 leading-7">{text}</p>
+    </details>
+  );
+}
 
 interface Session { ticket: string; ws_url: string; opener: string; practice: boolean; incident: string }
 interface Contact { name: string; phone: string }
@@ -312,22 +324,21 @@ export default function PanggilanPage() {
     );
   } else if (!startedAt) {
     view = (
-      <section className="space-y-4" aria-labelledby="dial-title">
+      <section className="space-y-4 text-center" aria-labelledby="dial-title">
+        <div className="flex animate-pulse justify-center text-[color:var(--color-accent)]"><IncidentIcon id={sess.incident} size={96} /></div>
         <h1 id="dial-title" className="text-[32px] font-bold leading-10">{t("call.dialing")}</h1>
-        <p className="text-[18px]">{t("call.attempt", { n: st.attempt })}</p>
-        <div className="rounded-[12px] bg-[color:var(--color-surface)] p-3">
-          <p className="text-[16px] text-[color:var(--color-text-muted)]">Yang akan dibacakan ke operator:</p>
-          <p>{sess.opener || `Panggilan relay otomatis untuk ${incidentLabel}.`}</p>
-        </div>
+        <p className="text-[18px]">{t("call.wait")}</p>
+        {st.attempt > 1 && <p className="text-[16px] text-[color:var(--color-text-muted)]">{t("call.attempt", { n: st.attempt })}</p>}
+        <OpenerText text={sess.opener || `Panggilan relay otomatis untuk ${incidentLabel}.`} />
       </section>
     );
   } else if (st.state === "PEMBUKA" || (opener && opener.speaking)) {
     view = (
-      <section className="space-y-3" aria-labelledby="op-title">
-        <h2 id="op-title" className="text-[24px] font-bold">{t("call.opener.title")}</h2>
-        <p className={`rounded-[12px] p-3 leading-7 ${opener?.speaking ? "bg-[color:var(--color-warning-bg)] ring-2 ring-[color:var(--color-primary)]" : "bg-[color:var(--color-surface)]"}`}>
-          {opener?.text ?? sess.opener}
-        </p>
+      <section className="space-y-4 text-center" aria-labelledby="op-title">
+        <div className="flex animate-pulse justify-center text-[color:var(--color-accent)]"><WaveIcon size={96} /></div>
+        <h2 id="op-title" className="text-[32px] font-bold leading-10">{t("call.opener.title")}</h2>
+        <p className="text-[18px]">{t("call.wait")}</p>
+        <OpenerText text={opener?.text ?? sess.opener} />
       </section>
     );
   } else {

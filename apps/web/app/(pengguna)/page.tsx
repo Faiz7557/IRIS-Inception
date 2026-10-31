@@ -37,11 +37,16 @@ export default function BerandaPage() {
   const { fix, error } = useGeo();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [practice, setPractice] = useState(true); // default latihan until profile says otherwise
+  const [hasAddress, setHasAddress] = useState<boolean | null>(null); // null = not loaded yet
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    loadProfile().then((p) => p && setPractice(p.practice_mode !== false));
+    loadProfile().then((p) => {
+      if (!p) return;
+      setPractice(p.practice_mode !== false);
+      setHasAddress(typeof p.address === "string" && p.address.trim() !== "");
+    });
   }, []);
 
   const start = useCallback(async () => {
@@ -127,13 +132,24 @@ export default function BerandaPage() {
           ))}
         </div>
 
-        <p
-          aria-live="polite"
-          className={`flex items-center gap-2 text-[18px] ${error ? "font-bold text-[color:var(--color-sos)]" : ""}`}
-        >
-          <GpsIcon size={24} />
-          {fix ? t("home.location.ok", { m: fix.accuracy_m }) : error ? t("home.location.none") : "Mencari lokasi…"}
-        </p>
+        {!fix && hasAddress === false ? (
+          <Link
+            href="/profil?baru=1"
+            aria-live="polite"
+            className="flex min-h-[56px] items-center gap-3 rounded-[12px] bg-[color:var(--color-sos)] px-4 text-[18px] font-bold text-white"
+          >
+            <GpsIcon size={24} />
+            {t("home.location.missing")}
+          </Link>
+        ) : (
+          <p
+            aria-live="polite"
+            className={`flex items-center gap-2 text-[18px] ${error ? "font-bold text-[color:var(--color-sos)]" : ""}`}
+          >
+            <GpsIcon size={24} />
+            {fix ? t("home.location.ok", { m: fix.accuracy_m }) : error ? t("home.location.none") : "Mencari lokasi…"}
+          </p>
+        )}
 
         <div className="mt-auto">
           {err && <p role="alert" className="mb-2 font-bold text-[color:var(--color-sos)]">{err}</p>}
