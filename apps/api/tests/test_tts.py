@@ -239,3 +239,26 @@ def test_elevenlabs_force_fail_uses_cache_only(eleven_env):
     tts.force_fail = True
     assert asyncio.run(collect(tts, PHRASES["P_YES"])) == [b"cached"]
     assert not seen
+
+
+def test_google_midstream_failure_does_not_replay_fallback():
+    class MidstreamErrorClient:
+        def __init__(self):
+            self.fallback_called = False
+
+        async def streaming_synthesize(self, *, requests):
+            async def responses():
+                yield SimpleNamespace(audio_content=b"\x01\x02")
+                raise RuntimeError("network dropped mid-stream")
+
+            return responses()
+
+        async def synthesize_speech(self, **kwargs):
+            self.fallback_called = True
+            return SimpleNamespace(audio_content=b"H" * 44 + b"\x09\x09" * 100)
+
+    client = MidstreamErrorClient()
+    tts = TTS(client=client)
+    with pytest.raises(TTSUnavailable):
+        asyncio.run(collect(tts, "Teks arbitrary panjang."))
+    assert not client.fallback_called
