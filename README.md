@@ -171,24 +171,48 @@ Proporsi dilaporkan dengan interval Wilson 95%. Kasus gagal akan dicantumkan di 
 
 ## Cara menjalankan lokal
 
-Backend (dari `apps/api`, Python 3.12+):
+### 1. Backend (Python 3.12+)
 
+Salin template environment di root:
+```bash
+cp .env.example .env
 ```
-python -m venv .venv
+
+**Opsi A: Menggunakan `uv` (Direkomendasikan):**
+```bash
+# Dari root repo:
+uv sync
+uv run uvicorn main:app --app-dir apps/api --port 8000
+
+# Atau dari dalam folder apps/api:
+cd apps/api
+uv run uvicorn main:app --port 8000
+```
+
+**Opsi B: Menggunakan virtualenv & `pip` standar:**
+```bash
+# Dari root repo:
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --app-dir apps/api --port 8000
+
+# Atau dari dalam folder apps/api:
+cd apps/api
+python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --port 8000
 ```
 
-Salin `.env.example` ke `.env` dan isi kuncinya. Variabel yang dibutuhkan ada di [INTEGRATION.md](INTEGRATION.md).
+### 2. Frontend Web (Next.js / PWA)
 
-Web (dari `apps/web`):
-
-```
+Buka terminal baru dan masuk ke folder `apps/web`:
+```bash
+cd apps/web
 npm install
 npm run dev
 ```
-
 Set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 Supabase lokal (`npx supabase start` dari root repo, butuh Docker; set `SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN=placeholder`). Nomor uji `081200000001` memakai kode `112112`. Nomor lain juga bisa: OTP tidak dikirim lewat SMS, tetapi disimpan oleh hook `dev_send_sms` (`supabase/seed.sql`). Baca kodenya dengan:
@@ -207,7 +231,12 @@ PUBLIC_WS_URL=ws://127.0.0.1:8000 uvicorn main:app --port 8000
 python tests/smoke_e2e.py      # dari apps/api: satu panggilan penuh
 ```
 
-Uji unit: `pytest` dari `apps/api`.
+Uji unit:
+```bash
+uv run pytest           # dari root repo
+# atau:
+cd apps/api && pytest   # dari folder apps/api
+```
 
 ## Kontribusi tiap anggota
 
