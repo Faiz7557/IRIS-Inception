@@ -36,29 +36,27 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
       ref={ref}
       tabIndex={-1}
       aria-labelledby={titleId}
-      className={`card-in space-y-4 rounded-[16px] p-4 shadow-[var(--shadow-card)] outline-none ${
-        instr ? "bg-[color:var(--color-warning-bg)]" : "bg-[color:var(--color-surface)]"
-      } ${locked && status === "sent" ? "opacity-70" : ""}`}
+      className={`card-in space-y-4 rounded-[14px] p-4 shadow-[var(--shadow-card)] outline-none ${
+        instr ? "bg-signal text-ink" : "bg-asphalt-2"
+      }`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        {silentDot && <span className="h-3 w-3 rounded-full bg-[color:var(--color-primary)]" aria-label="Kartu baru" role="img" />}
+        {silentDot && <span className="h-3 w-3 rounded-full bg-signal" aria-label="Kartu baru" role="img" />}
         {CHIPS[card.degradation] && (
-          <span className="rounded-full bg-[color:var(--color-warning-bg)] px-3 text-[16px] font-bold text-[color:var(--color-warning)]">
+          <span className="rounded-[6px] bg-warning-bg px-2.5 text-[15px] font-bold text-signal">
             {CHIPS[card.degradation]}
           </span>
         )}
       </div>
 
       {instr && (
-        <div className="flex justify-center text-[color:var(--color-warning)]" role="img" aria-label={card.question}>
-          <CheckIcon size={96} />
-        </div>
+        <p className="text-[15px] leading-5 font-extrabold tracking-[0.06em]">ARAHAN OPERATOR</p>
       )}
 
       <h2
         id={titleId}
         aria-live="assertive"
-        className={`font-bold ${l1 ? "text-[24px] leading-8" : "text-[32px] leading-10"}`}
+        className={`font-extrabold tracking-[-0.015em] text-balance ${l1 ? "text-[24px] leading-8" : "text-[34px] leading-10"}`}
       >
         {l1 ? card.transcript || card.question : card.question}
       </h2>
@@ -75,18 +73,20 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
               type="button"
               aria-disabled={locked || undefined}
               onClick={() => !locked && onOption(o)}
-              className={`flex min-h-[64px] items-center justify-center gap-2 rounded-[12px] px-4 text-[18px] font-bold ${
+              className={`flex min-h-[68px] items-center justify-center gap-2 rounded-[12px] px-4 text-[21px] font-extrabold transition-[background-color,opacity,transform] duration-150 ease-out active:scale-[0.98] ${
                 mine && status === "sent"
-                  ? "bg-[color:var(--color-success)] text-white"
+                  ? "bg-done text-ink"
                   : dont
-                    ? "border-2 border-[color:var(--color-primary)] bg-[color:var(--color-surface)] text-[color:var(--color-accent)]"
-                    : "bg-[color:var(--color-primary)] text-white"
-              } ${dim ? "opacity-40" : ""}`}
+                    ? `border-[3px] bg-transparent ${instr ? "border-ink/70 text-ink" : "border-paint/60 text-paint"}`
+                    : instr
+                      ? "bg-ink text-signal"
+                      : "bg-paint text-ink"
+              } ${dim ? "opacity-35" : ""}`}
             >
               {o.action === "kirim_gps" && <GpsIcon size={24} />}
               <span className="flex flex-col items-center leading-6">
                 <span>{mine && status === "sending" ? t("call.sending") : mine && status === "sent" ? t("call.sent") : o.label}</span>
-                {sub && !mine && <span className="text-[16px] font-normal">{sub}</span>}
+                {sub && !mine && <span className="text-[15px] font-bold opacity-80">{sub}</span>}
               </span>
               {mine && status === "sent" && <CheckIcon size={24} />}
             </button>
@@ -101,12 +101,12 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
             type="button"
             aria-expanded={open}
             onClick={() => setOpen(!open)}
-            className="min-h-[44px] text-[16px] font-bold text-[color:var(--color-accent)]"
+            className={`min-h-12 text-[16px] font-bold underline underline-offset-4 ${instr ? "text-ink" : "text-paint-muted"}`}
           >
             {open ? "Tutup kata operator" : "Lihat kata operator"}
           </button>
           {open && (
-            <p className="rounded-[12px] bg-[color:var(--color-bg)] p-3 text-[16px] leading-6 text-[color:var(--color-text-muted)]">
+            <p className={`rounded-[12px] p-3 text-[16px] leading-6 ${instr ? "bg-ink/10" : "bg-asphalt text-paint-muted"}`}>
               {card.transcript}
             </p>
           )}
@@ -118,18 +118,18 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
           type="button"
           aria-disabled={locked || undefined}
           onClick={() => !locked && onRepeat()}
-          className="min-h-[56px] px-2 text-[18px] font-bold text-[color:var(--color-accent)]"
+          className={`min-h-14 rounded-[12px] px-3 text-[18px] font-bold ${instr ? "text-ink" : "text-signal"}`}
         >
           {t("call.repeat")}
         </button>
         {card.total > 1 && (
-          <span className="text-[16px] text-[color:var(--color-text-muted)]">
+          <span className={`text-[16px] font-bold ${instr ? "text-ink/75" : "text-paint-muted"}`}>
             Kartu {Math.min(idx, card.total)} dari {card.total}
           </span>
         )}
       </div>
       {pendingAfter > 0 && (
-        <p className="text-[16px] text-[color:var(--color-text-muted)]">{pendingAfter} pertanyaan lagi menunggu</p>
+        <p className={`text-[16px] font-bold ${instr ? "text-ink/75" : "text-paint-muted"}`}>{pendingAfter} pertanyaan lagi menunggu</p>
       )}
     </section>
   );

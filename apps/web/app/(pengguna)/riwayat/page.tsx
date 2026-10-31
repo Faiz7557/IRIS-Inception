@@ -23,7 +23,7 @@ export default function Riwayat() {
   }, []);
   return (
     <main className="mx-auto max-w-md space-y-3 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-3xl font-bold">Riwayat</h1>
+      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Riwayat</h1>
       <p role="alert" className="text-[var(--color-sos)]">
         {err}
       </p>

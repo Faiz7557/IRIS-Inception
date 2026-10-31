@@ -1,53 +1,89 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Trayek Angkot: night asphalt ground, warm white paint, one solid route paint per incident.
+ * Colour only where it means something: incident paint, SOS red, yellow for focus/practice, green for "done".
+ * One theme on purpose: users are often in the dark or in smoke, and silent mode needs a dim screen anyway.
+ */
 :root {
-  --color-sos: #b91c1c;
-  --color-sos-pressed: #7f1d1d;
-  --color-primary: #0f766e;
-  --color-primary-strong: #115e59;
-  --color-navy: #1e293b;
-  --color-text: #0f172a;
-  --color-text-muted: #475569;
-  --color-surface: #ffffff;
-  --color-bg: #f1f5f9;
-  --color-warning: #b45309;
-  --color-warning-bg: #fef3c7;
-  --color-success: #15803d;
-  --color-focus: #2563eb;
-  --color-accent: #0f766e; /* teal for text/icons; lighter in dark mode */
-  --incident-fire: #c2410c;
-  --incident-crash: #a16207;
-  --incident-medical: #0f766e;
-  --incident-crime: #1e3a8a;
-  --incident-dv: #6d28d9;
-  --incident-disaster: #475569;
-  --shadow-card: 0 4px 16px rgb(15 23 42 / 0.12);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0b1220;
-    --color-surface: #111827;
-    --color-text: #f8fafc;
-    --color-text-muted: #94a3b8;
-    --color-navy: #f8fafc;
-    --color-accent: #2dd4bf;
-    --color-warning-bg: #422006;
-  }
-}
-
-/* Silent mode: force dark regardless of OS setting (Design Brief 5.1). */
-.silent {
-  --color-bg: #0b1220;
-  --color-surface: #111827;
-  --color-text: #f8fafc;
-  --color-text-muted: #94a3b8;
-  --color-navy: #f8fafc;
-  --color-accent: #2dd4bf;
-  --color-warning-bg: #422006;
   color-scheme: dark;
+
+  --asphalt: #15171b;
+  --asphalt-2: #1f2228;
+  --asphalt-3: #2b2f37;
+  --paint-white: #f4f1ea;
+  --paint-muted: #bdb8ad; /* 9.6:1 on asphalt, 8.4:1 on asphalt-2 */
+
+  --paint-fire: #f26b1d;
+  --paint-crash: #f5c518;
+  --paint-medical: #18a999;
+  --paint-crime: #2f5bd3;
+  --paint-dv: #a23ec9;
+  --paint-disaster: #8a8f99;
+  --paint-general: #f4f1ea;
+
+  --ink-dark: #15171b;
+  --ink-light: #ffffff;
+
+  --sos: #e0261b; /* white text 4.6:1 */
+  --sos-pressed: #9e1710;
+  --signal: #f5c518; /* focus ring, LATIHAN, warnings */
+  --done: #3ccf7a; /* stop reached */
+
+  /* Legacy names kept so existing screens re-skin without logic changes. */
+  --color-sos: var(--sos);
+  --color-sos-pressed: var(--sos-pressed);
+  --color-primary: #f4f1ea;
+  --color-primary-strong: #ffffff;
+  --color-on-primary: #15171b;
+  --color-navy: var(--paint-white);
+  --color-text: var(--paint-white);
+  --color-text-muted: var(--paint-muted);
+  --color-surface: var(--asphalt-2);
+  --color-bg: var(--asphalt);
+  --color-warning: var(--signal);
+  --color-warning-bg: #3a3013;
+  --color-success: var(--done);
+  --color-focus: var(--signal);
+  --color-accent: var(--signal);
+  --incident-fire: var(--paint-fire);
+  --incident-crash: var(--paint-crash);
+  --incident-medical: var(--paint-medical);
+  --incident-crime: var(--paint-crime);
+  --incident-dv: var(--paint-dv);
+  --incident-disaster: var(--paint-disaster);
+  --shadow-card: 0 6px 18px rgb(0 0 0 / 0.45);
+
+  /* shadcn/ui tokens mapped onto the same world. */
+  --radius: 14px;
+  --background: var(--asphalt);
+  --foreground: var(--paint-white);
+  --card: var(--asphalt-2);
+  --card-foreground: var(--paint-white);
+  --popover: var(--asphalt-2);
+  --popover-foreground: var(--paint-white);
+  --primary: var(--paint-white);
+  --primary-foreground: var(--ink-dark);
+  --secondary: var(--asphalt-3);
+  --secondary-foreground: var(--paint-white);
+  --muted: var(--asphalt-3);
+  --muted-foreground: var(--paint-muted);
+  --accent: var(--asphalt-3);
+  --accent-foreground: var(--paint-white);
+  --destructive: var(--sos);
+  --border: var(--asphalt-3);
+  --input: var(--asphalt-3);
+  --ring: var(--signal);
 }
-/* 40% black overlay helper: put class "silent-dim" on an empty element. */
+
+/* Silent mode dims further; the world is already dark. */
+.silent {
+  --paint-white: #e6e2d9;
+}
 .silent-dim {
   position: fixed;
   inset: 0;
@@ -56,12 +92,12 @@
   z-index: 50;
 }
 
-/* Tokens are plain :root variables (so dark/silent overrides apply); @theme inline exposes them as utilities. */
 @theme inline {
   --color-sos: var(--color-sos);
   --color-sos-pressed: var(--color-sos-pressed);
   --color-primary: var(--color-primary);
   --color-primary-strong: var(--color-primary-strong);
+  --color-on-primary: var(--color-on-primary);
   --color-navy: var(--color-navy);
   --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
@@ -72,31 +108,83 @@
   --color-success: var(--color-success);
   --color-focus: var(--color-focus);
   --color-accent: var(--color-accent);
+  --color-asphalt: var(--asphalt);
+  --color-asphalt-2: var(--asphalt-2);
+  --color-asphalt-3: var(--asphalt-3);
+  --color-paint: var(--paint-white);
+  --color-paint-muted: var(--paint-muted);
+  --color-signal: var(--signal);
+  --color-done: var(--done);
+  --color-ink: var(--ink-dark);
   --color-incident-fire: var(--incident-fire);
   --color-incident-crash: var(--incident-crash);
   --color-incident-medical: var(--incident-medical);
   --color-incident-crime: var(--incident-crime);
   --color-incident-dv: var(--incident-dv);
   --color-incident-disaster: var(--incident-disaster);
-  --radius-card: 16px;
+  --radius-card: 14px;
   --radius-btn: 12px;
   --shadow-card: var(--shadow-card);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
 }
 
 html {
   font-size: 18px;
 }
 body {
-  background: var(--color-bg);
+  background-color: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 1rem;
-  line-height: 28px; /* 18/28 */
+  line-height: 28px;
+}
+
+::selection {
+  background: var(--signal);
+  color: var(--ink-dark);
+}
+input,
+textarea {
+  caret-color: var(--signal);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--signal);
+}
+::placeholder {
+  color: var(--paint-muted);
+  opacity: 1;
 }
 
 :focus-visible {
   outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

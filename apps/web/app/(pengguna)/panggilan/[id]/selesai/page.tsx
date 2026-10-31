@@ -43,7 +43,7 @@ export default function SelesaiPage() {
   const d = s.duration_s ?? 0;
   return (
     <main className="mx-auto min-h-dvh w-full max-w-[480px] space-y-4 px-4 py-6">
-      <h1 className="text-[32px] font-bold leading-10">Panggilan selesai</h1>
+      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Panggilan selesai</h1>
       <p className="text-[18px]">{REASON[s.reason ?? ""] ?? ""}</p>
       <dl className="space-y-2 rounded-[16px] bg-[color:var(--color-surface)] p-4">
         <div className="flex justify-between"><dt>Durasi</dt><dd className="font-bold">{Math.floor(d / 60)} mnt {d % 60} dtk</dd></div>
@@ -53,13 +53,13 @@ export default function SelesaiPage() {
         <div className="space-y-2 rounded-[16px] bg-[color:var(--color-warning-bg)] p-4">
           <p className="font-bold">Matikan mode latihan?</p>
           <div className="flex gap-3">
-            <button type="button" onClick={turnOffPractice} className="min-h-[56px] flex-1 rounded-[12px] bg-[color:var(--color-primary)] font-bold text-white">Ya</button>
-            <button type="button" onClick={() => setOffer(null)} className="min-h-[56px] flex-1 rounded-[12px] border-2 border-[color:var(--color-primary)] font-bold text-[color:var(--color-accent)]">Nanti</button>
+            <button type="button" onClick={turnOffPractice} className="min-h-[56px] flex-1 rounded-[12px] bg-[color:var(--color-primary)] font-extrabold text-ink">Ya</button>
+            <button type="button" onClick={() => setOffer(null)} className="min-h-[56px] flex-1 rounded-[12px] border-[3px] border-paint/60 font-bold text-paint">Nanti</button>
           </div>
         </div>
       )}
       {offer === "done" && <p role="status">Mode latihan dimatikan.</p>}
-      <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-bold text-white">
+      <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-extrabold text-ink">
         Kembali ke beranda
       </Link>
     </main>

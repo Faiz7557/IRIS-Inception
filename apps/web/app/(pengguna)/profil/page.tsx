@@ -8,7 +8,7 @@ import { saveLocalProfile } from "@/lib/offline-store";
 const VERSION = "medis-v1-2026-10-31";
 const BLOOD = ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const input =
-  "mt-1 min-h-12 w-full rounded-xl border-2 border-[var(--color-text-muted)] bg-[var(--color-surface)] px-4 text-lg disabled:opacity-50";
+  "mt-1 min-h-12 w-full rounded-xl border-[3px] border-paint-muted/50 bg-asphalt-2 focus:border-signal px-4 text-lg disabled:opacity-50";
 
 interface ProfileRes {
   profile: { display_name?: string; address?: string; landmark?: string; blood_type?: string; medical_notes?: string };
@@ -76,7 +76,7 @@ export default function Profil() {
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-3xl font-bold">{baru ? "Di mana Anda tinggal?" : "Profil darurat"}</h1>
+      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">{baru ? "Di mana Anda tinggal?" : "Profil darurat"}</h1>
       {baru && <p className="text-lg">Petugas memakai alamat ini kalau GPS tidak ada.</p>}
       <form onSubmit={save} className="space-y-4">
         <label className="block">
@@ -118,7 +118,7 @@ export default function Profil() {
         </p>
         <button
           disabled={busy}
-          className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-bold text-white disabled:opacity-60"
+          className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-extrabold text-ink disabled:opacity-60"
         >
           {busy ? "Menyimpan…" : baru ? "Simpan dan mulai" : "Simpan"}
         </button>
@@ -129,7 +129,7 @@ export default function Profil() {
           <p className="mt-2">{preview}</p>
           <button
             onClick={() => r.push("/kontak")}
-            className="mt-4 min-h-12 w-full rounded-xl border-2 border-[var(--color-primary)] font-bold text-[var(--color-accent)]"
+            className="mt-4 min-h-12 w-full rounded-xl border-[3px] border-paint/60 font-bold text-paint"
           >
             Lanjut ke kontak darurat
           </button>

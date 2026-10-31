@@ -22,11 +22,11 @@ export function ShortInputSheet({
       aria-modal="true"
       aria-label="Ketik singkat"
       onKeyDown={(e) => e.key === "Escape" && onClose()}
-      className="fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[60dvh] max-w-[480px] flex-col gap-3 rounded-t-[16px] bg-[color:var(--color-surface)] p-4 shadow-[var(--shadow-card)]"
+      className="fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[60dvh] max-w-[480px] flex-col gap-3 rounded-t-[18px] border-t-4 border-paint bg-asphalt-2 p-4 shadow-[0_-10px_30px_rgb(0_0_0/0.5)]"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-[24px] font-bold">Ketik singkat</h2>
-        <button type="button" onClick={onClose} className="min-h-[56px] min-w-[56px] font-bold text-[color:var(--color-accent)]">
+        <h2 className="text-[26px] font-extrabold">Ketik singkat</h2>
+        <button type="button" onClick={onClose} className="min-h-14 min-w-14 font-bold text-signal">
           Tutup
         </button>
       </div>
@@ -37,7 +37,7 @@ export function ShortInputSheet({
               key={s}
               type="button"
               onClick={() => setV(s.slice(0, MAX))}
-              className="min-h-[56px] rounded-full border-2 border-[color:var(--color-primary)] px-4 text-[16px]"
+              className="min-h-14 rounded-[12px] border-[3px] border-paint/60 px-4 text-[17px] font-bold"
             >
               {s}
             </button>
@@ -52,16 +52,16 @@ export function ShortInputSheet({
         aria-label="Pesan singkat"
         enterKeyHint="send"
         onKeyDown={(e) => e.key === "Enter" && clean && onSend(clean)}
-        className="min-h-[56px] rounded-[12px] border-2 border-[color:var(--color-text-muted)] bg-transparent px-3 text-[18px]"
+        className="min-h-14 rounded-[12px] border-[3px] border-paint-muted/60 bg-asphalt px-3 text-[19px] focus:border-signal"
       />
-      <div className="text-right text-[16px] text-[color:var(--color-text-muted)]" aria-live="polite">
+      <div className="text-right text-[16px] text-paint-muted" aria-live="polite">
         {v.length}/{MAX}
       </div>
       <button
         type="button"
         disabled={!clean}
         onClick={() => onSend(clean)}
-        className="mt-auto min-h-[56px] rounded-[12px] bg-[color:var(--color-primary)] font-bold text-white disabled:opacity-40"
+        className="mt-auto min-h-16 rounded-[12px] bg-paint text-[20px] font-extrabold text-ink disabled:opacity-40"
       >
         Kirim
       </button>

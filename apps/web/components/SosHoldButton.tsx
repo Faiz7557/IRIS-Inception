@@ -96,7 +96,6 @@ export function SosHoldButton({ onComplete, disabled }: { onComplete: () => void
   useEffect(() => setKeyboard(window.matchMedia("(pointer: fine)").matches), []);
 
   const left = Math.max(1, Math.ceil(3 - p * 3));
-  const countdown = holding ? ["3", "2", "1"].slice(3 - left).join(" … ") : t("home.sos");
 
   return (
     <div>
@@ -113,20 +112,32 @@ export function SosHoldButton({ onComplete, disabled }: { onComplete: () => void
         onPointerCancel={() => stop(true)}
         onContextMenu={(e) => e.preventDefault()}
         onBlur={() => stop(true)}
-        style={{ touchAction: "none", background: holding ? "var(--color-sos-pressed)" : "var(--color-sos)" }}
-        className="flex h-[88px] w-full select-none items-center justify-center gap-3 rounded-[12px] text-[24px] font-bold text-white disabled:opacity-60"
+        style={{ touchAction: "none", background: holding ? "var(--sos-pressed)" : "var(--sos)" }}
+        className="relative flex h-[104px] w-full select-none items-center gap-4 overflow-hidden rounded-[18px] px-5 text-left text-white shadow-[0_10px_28px_rgb(224_38_27/0.35)] disabled:opacity-60"
       >
-        <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden>
+        {/* The route being driven: white paint fills the bar left to right while held. */}
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 bg-white/18"
+          style={{ width: `${p * 100}%` }}
+        />
+        <svg width="58" height="58" viewBox="0 0 52 52" aria-hidden className="relative shrink-0">
           <circle cx="26" cy="26" r={R} fill="none" stroke="rgb(255 255 255 / 0.3)" strokeWidth="5" />
           <circle
             cx="26" cy="26" r={R} fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round"
             strokeDasharray={C} strokeDashoffset={C * (1 - p)} transform="rotate(-90 26 26)"
           />
+          {holding && (
+            <text x="26" y="34" textAnchor="middle" fill="#fff" fontSize="22" fontWeight="800">{left}</text>
+          )}
         </svg>
-        <span>{countdown}</span>
+        <span className="relative flex flex-col">
+          <span className="text-[26px] leading-8 font-extrabold tracking-[-0.01em] whitespace-nowrap">{holding ? "Terus tahan…" : t("home.sos")}</span>
+          <span className="text-[16px] leading-6 text-white/90">untuk memanggil 112</span>
+        </span>
       </button>
-      <p id="sos-help" className="mt-2 text-center text-[16px] leading-6 text-[color:var(--color-text-muted)]">
-        {hint ? t("home.sos.release_early") : keyboard ? "Tahan tombol ini, atau tahan Spasi, selama 3 detik." : "Tahan tombol ini selama 3 detik."}
+      <p id="sos-help" className={`mt-2 text-center text-[16px] leading-6 ${hint ? "font-bold text-signal" : "text-paint-muted"}`}>
+        {hint ? t("home.sos.release_early") : keyboard ? "Atau tahan tombol Spasi selama 3 detik." : "Tahan sampai lingkaran penuh."}
       </p>
     </div>
   );

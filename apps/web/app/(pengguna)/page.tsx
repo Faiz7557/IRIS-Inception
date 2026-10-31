@@ -37,7 +37,8 @@ export default function BerandaPage() {
   const { fix, error } = useGeo();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [practice, setPractice] = useState(true); // default latihan until profile says otherwise
-  const [hasAddress, setHasAddress] = useState<boolean | null>(null); // null = not loaded yet
+  const [address, setAddress] = useState<string | null>(null); // null = not loaded yet, "" = none
+  const hasAddress = address === null ? null : address !== "";
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -45,7 +46,7 @@ export default function BerandaPage() {
     loadProfile().then((p) => {
       if (!p) return;
       setPractice(p.practice_mode !== false);
-      setHasAddress(typeof p.address === "string" && p.address.trim() !== "");
+      setAddress(typeof p.address === "string" ? p.address.trim() : "");
     });
   }, []);
 
@@ -105,56 +106,66 @@ export default function BerandaPage() {
   }, [busy, fix, incident, practice, router]);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col">
-      {practice && (
-        <div className="bg-[#fde047] px-4 py-1 text-center text-[16px] font-bold leading-6 text-[#422006]">
-          {t("practice.banner")}
-        </div>
-      )}
-      <div className="flex flex-1 flex-col gap-4 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[24px] font-bold text-[color:var(--color-navy)]">{t("home.title")}</h1>
-          <Link href="/pengaturan" aria-label="Pengaturan" className="flex min-h-[44px] min-w-[44px] items-center justify-center font-bold text-[color:var(--color-accent)]">
-            Atur
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {INCIDENTS.map((i) => (
-            <IncidentTile
-              key={i.id}
-              id={i.id}
-              label={i.label}
-              colorVar={i.colorVar}
-              selected={incident === i.id}
-              onToggle={() => setIncident(incident === i.id ? null : i.id)}
-            />
-          ))}
-        </div>
-
-        {!fix && hasAddress === false ? (
+    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-5 pt-4 pb-6">
+      <div className="flex min-h-12 items-center justify-between">
+        {practice ? (
           <Link
-            href="/profil?baru=1"
-            aria-live="polite"
-            className="flex min-h-[56px] items-center gap-3 rounded-[12px] bg-[color:var(--color-sos)] px-4 text-[18px] font-bold text-white"
+            href="/pengaturan"
+            className="rounded-[6px] bg-signal px-2.5 py-0.5 text-[14px] leading-6 font-extrabold tracking-[0.06em] text-ink"
+            aria-label={`${t("practice.banner")}. Ubah di pengaturan.`}
           >
-            <GpsIcon size={24} />
-            {t("home.location.missing")}
+            LATIHAN
           </Link>
         ) : (
-          <p
-            aria-live="polite"
-            className={`flex items-center gap-2 text-[18px] ${error ? "font-bold text-[color:var(--color-sos)]" : ""}`}
-          >
-            <GpsIcon size={24} />
-            {fix ? t("home.location.ok", { m: fix.accuracy_m }) : error ? t("home.location.none") : "Mencari lokasi…"}
-          </p>
+          <span />
         )}
+        <Link href="/pengaturan" aria-label="Pengaturan" className="flex min-h-12 min-w-12 items-center justify-end font-bold text-paint/85">
+          Atur
+        </Link>
+      </div>
 
-        <div className="mt-auto">
-          {err && <p role="alert" className="mb-2 font-bold text-[color:var(--color-sos)]">{err}</p>}
-          <SosHoldButton disabled={busy} onComplete={start} />
-        </div>
+      <h1 className="mt-2 mb-4 text-[34px] leading-[38px] font-extrabold tracking-[-0.02em] text-balance">{t("home.title")}</h1>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        {INCIDENTS.map((i) => (
+          <IncidentTile
+            key={i.id}
+            id={i.id}
+            label={i.label}
+            selected={incident === i.id}
+            dimmed={incident !== null && incident !== i.id}
+            onToggle={() => setIncident(incident === i.id ? null : i.id)}
+          />
+        ))}
+      </div>
+
+      {!fix && hasAddress === false ? (
+        <Link
+          href="/profil?baru=1"
+          aria-live="polite"
+          className="mt-4 flex min-h-14 items-center gap-3 rounded-[12px] bg-sos px-4 text-[18px] leading-6 font-bold text-white"
+        >
+          <GpsIcon size={24} />
+          {t("home.location.missing")}
+        </Link>
+      ) : (
+        <p
+          aria-live="polite"
+          className="mt-4 flex min-h-14 items-center gap-3 rounded-[12px] bg-asphalt-2 px-4 text-[17px] leading-6 font-bold"
+        >
+          <span
+            aria-hidden
+            className={`size-3 shrink-0 rounded-full ${fix ? "bg-done" : error ? "bg-paint-muted" : "animate-pulse bg-signal"}`}
+          />
+          <span className="min-w-0 truncate">
+            {fix ? t("home.location.ok", { m: fix.accuracy_m }) : address ? address : error ? t("home.location.none") : "Mencari lokasi…"}
+          </span>
+        </p>
+      )}
+
+      <div className="mt-auto pt-6">
+        {err && <p role="alert" className="mb-2 font-bold text-signal">{err}</p>}
+        <SosHoldButton disabled={busy} onComplete={start} />
       </div>
     </main>
   );

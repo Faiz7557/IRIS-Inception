@@ -18,3 +18,7 @@ eval/results_*.csv
 # Supabase CLI local state
 supabase/.branches/
 supabase/.temp/
+
+# Impeccable design tool: keep briefs, ignore scratch
+.impeccable/*
+!.impeccable/surfaces/

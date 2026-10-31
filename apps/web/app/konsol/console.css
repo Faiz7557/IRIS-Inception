@@ -1,3 +1,12 @@
+/* The console keeps its own light palette; the user app's night-asphalt world stops here. */
+body:has(.console-shell) { background: #f1f5f9; color-scheme: light; }
+.console-shell {
+  --color-sos: #b91c1c; --color-primary: #0f766e; --color-navy: #1e293b; --color-text: #0f172a;
+  --color-text-muted: #475569; --color-surface: #ffffff; --color-bg: #f1f5f9; --color-warning: #b45309;
+  --color-warning-bg: #fef3c7; --color-focus: #2563eb; --color-accent: #0f766e; --incident-fire: #c2410c;
+  --shadow-card: 0 4px 16px rgb(15 23 42 / 0.12);
+  color: var(--color-text);
+}
 .console-shell { max-width: 1440px; margin: auto; padding: 24px; font-size: 16px; }
 .console-shell h1 { font-size: 26px; font-weight: 700; margin-bottom: 16px; }
 .console-shell h2 { font-size: 19px; font-weight: 700; margin-bottom: 12px; }

@@ -133,7 +133,7 @@ export default function KontakPage({ params }: { params: Promise<{ token: string
       {data && (
         <section className="space-y-2 rounded-xl bg-[var(--color-surface)] p-4">
           {ios && <p className="text-[var(--color-warning)]">Tambahkan ke Layar Utama agar notifikasi bisa muncul.</p>}
-          <button onClick={enablePush} className="min-h-12 w-full rounded-xl border-2 border-[var(--color-primary)] font-bold text-[var(--color-accent)]">Izinkan notifikasi</button>
+          <button onClick={enablePush} className="min-h-12 w-full rounded-xl border-[3px] border-paint/60 font-bold text-paint">Izinkan notifikasi</button>
           <p role="status">{push}</p>
         </section>
       )}

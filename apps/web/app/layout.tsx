@@ -5,7 +5,7 @@ import RegisterSW from "@/components/RegisterSW";
 
 const sans = Atkinson_Hyperlegible_Next({
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: ["400", "700", "800"],
   display: "swap",
   fallback: ["system-ui"],
   variable: "--font-sans",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F766E",
+  themeColor: "#15171b",
   width: "device-width",
   initialScale: 1,
 };

@@ -1,0 +1,74 @@
+# Design: Trayek Angkot
+
+Scope: the user side of the PWA (`apps/web`, everything except `/konsol`). The operator console keeps its own light palette in `app/konsol/console.css`.
+
+Every call is one angkot route. The incident is the paint on the van; the call is the route board whose stops fill in as the operator learns each fact. Built for a deaf user in a panic, one-handed, often in the dark or in smoke.
+
+## Colour
+
+One dark theme on purpose (night scene; silent mode needs a dim screen anyway). Colour appears only where it means something.
+
+| Token | Value | Job |
+|---|---|---|
+| `--asphalt` | `#15171b` | Page ground |
+| `--asphalt-2` | `#1f2228` | Raised surface: cards, strips, sheets |
+| `--asphalt-3` | `#2b2f37` | Borders, secondary buttons, inactive progress |
+| `--paint-white` | `#f4f1ea` | Text, default button paint |
+| `--paint-muted` | `#bdb8ad` | Secondary text (9.6:1 on asphalt) |
+| `--sos` | `#e0261b` | SOS bar, call failure, cancel confirm |
+| `--signal` | `#f5c518` | Focus ring, LATIHAN badge, warnings, caret, selection |
+| `--done` | `#3ccf7a` | Answer spoken, help dispatched |
+
+Route paints, one per incident, each with the ink that passes AA (`lib/incidents.ts`, `paintOf()`):
+
+| Incident | Paint | Ink |
+|---|---|---|
+| Kebakaran | `#f26b1d` | dark |
+| Kecelakaan | `#f5c518` | dark |
+| Sakit | `#18a999` | dark |
+| Kejahatan | `#2f5bd3` | white |
+| KDRT | `#a23ec9` | white |
+| Bencana | `#8a8f99` | dark |
+| Umum | `#f4f1ea` | dark |
+
+Legacy names (`--color-primary`, `--color-surface`, `--color-text-muted`, …) are kept and mapped onto these, and the shadcn/ui tokens (`--background`, `--primary`, `--ring`, …) map onto the same values. `--color-primary` is white paint, so anything on it uses `text-ink`, never `text-white`.
+
+## Type
+
+Atkinson Hyperlegible Next 400/700/800, root 18px.
+
+- Screen title: 34px / 38px, 800, tracking -0.02em
+- Question on a card: 34px / 40px, 800, balanced
+- Current route stop: 26px / 32px, 800
+- Plate and button labels: 18–21px, 800
+- Body: 18px / 28px; secondary 15–17px in `--paint-muted`
+- Clock: Atkinson Hyperlegible Mono, tabular numerals
+
+## Shape and touch
+
+- Plates 14px radius, buttons 12px, SOS bar 18px. Solid paint, no gradients, no glass.
+- Touch floor 48px; answers 68px; primary actions 64px (`Button size="xl"`); SOS bar 104px.
+- Spacing on a 4px base; plates sit in a 2-column grid with 10px gaps. Screens are a single 480px column with 20px side gutters.
+- Shadows only to lift a selected plate or the SOS bar: `0 8px 20px rgb(0 0 0 / .5)`.
+
+## Components
+
+- `IncidentTile`: route-paint plate, icon top-left, label bottom-left. Selected = 4px white paint ring + check badge; the others drop to 60% opacity.
+- `SosHoldButton`: red bar; while held, white paint fills it left to right, the ring counts 3-2-1, the label reads "Terus tahan…". Space works from page load on keyboard devices.
+- `RouteBoard` (signature): vertical stops in the incident paint. Done = filled dot with check and a solid segment; current = larger dot with a ping (off under reduced motion) and a 26px label; todo = dashed hollow dot. `compact` is a one-line strip above a question card.
+- `CallHeader`: incident paint band with icon, name, clock, LATIHAN chip and a 3px-outline cancel button.
+- `QuestionCard`: question first, answers as white paint buttons with dark ink, "Tidak tahu" as an outline, spoken answer turns `--done`. Instruction cards are signal yellow with dark ink, like a warning sign. The operator transcript is folded under "Lihat kata operator".
+- Officer screen: the whole viewport in the incident paint, "Saya tuli. Tolong bantu saya." at 44px.
+- shadcn/ui: `components/ui/button.tsx` (variants `default`, `sos`, `outline`, `secondary`, `ghost`, `link`; sizes up to `xl`) and `components/ui/dialog.tsx` (used for cancel confirmation). Icons are the in-house Tabler-style set in `components/icons`; no other icon library.
+
+## Motion
+
+Short ease-out only: 150–200ms on press scale (0.97–0.98), tile dimming and answer colour. The route's current stop pings; new cards slide in 24px. Everything respects `prefers-reduced-motion`.
+
+## Rules
+
+- No colour without a job: outside the home grid, only the active incident paint and status colours appear.
+- Nothing is labelled twice: an icon and a word never repeat each other, and one status line per screen.
+- Each call stage keeps the same column, scale and baseline so a change reads without re-reading.
+- The route only grows downward; stops never jump back.
+- No claims of user testing or real 112 integration anywhere in the UI.

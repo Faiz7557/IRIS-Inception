@@ -61,7 +61,7 @@ export default function Pengaturan() {
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-3xl font-bold">Pengaturan</h1>
+      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Pengaturan</h1>
       {LABELS.map(([k, label]) => (
         <label key={k} className="flex min-h-14 items-center justify-between rounded-xl bg-[var(--color-surface)] px-4">
           <span className="text-lg">{label}</span>

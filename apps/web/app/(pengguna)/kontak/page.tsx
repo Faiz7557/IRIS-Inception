@@ -6,7 +6,7 @@ import { saveLocalContacts } from "@/lib/offline-store";
 interface Contact { id: string; name: string; phone: string; relation?: string }
 interface Created { contact?: Contact; status_url?: string; share_text?: string }
 const input =
-  "mt-1 min-h-12 w-full rounded-xl border-2 border-[var(--color-text-muted)] bg-[var(--color-surface)] px-4 text-lg";
+  "mt-1 min-h-12 w-full rounded-xl border-[3px] border-paint-muted/50 bg-asphalt-2 focus:border-signal px-4 text-lg";
 
 function norm(raw: string) {
   const s = raw.replace(/[\s-]/g, "");
@@ -60,7 +60,7 @@ export default function Kontak() {
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-3xl font-bold">Kontak darurat</h1>
+      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Kontak darurat</h1>
       {list.map((c) => (
         <article key={c.id} className="rounded-xl bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
           <p className="text-lg font-bold">
@@ -74,14 +74,14 @@ export default function Kontak() {
                 href={wa(shares[c.id])}
                 target="_blank"
                 rel="noreferrer"
-                className="min-h-12 rounded-xl bg-[var(--color-primary)] px-4 py-3 font-bold text-white"
+                className="min-h-12 rounded-xl bg-[var(--color-primary)] px-4 py-3 font-extrabold text-ink"
               >
                 Bagikan lewat WhatsApp
               </a>
             )}
             <button
               onClick={() => rotate(c.id)}
-              className="min-h-12 rounded-xl border-2 border-[var(--color-primary)] px-4 font-bold text-[var(--color-accent)]"
+              className="min-h-12 rounded-xl border-[3px] border-paint/60 px-4 font-bold text-paint"
             >
               Tautan baru
             </button>
@@ -117,7 +117,7 @@ export default function Kontak() {
           <p role="alert" className="text-[var(--color-sos)]">
             {err}
           </p>
-          <button className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-bold text-white">
+          <button className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-extrabold text-ink">
             Tambah kontak
           </button>
         </form>

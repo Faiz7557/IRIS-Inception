@@ -31,18 +31,18 @@ export default function Masuk() {
 
   return (
     <main className="mx-auto min-h-dvh max-w-md p-6 text-[var(--color-text)]">
-      <h1 className="text-3xl font-bold">Masuk</h1>
+      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Masuk</h1>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <label className="block">
           <span className="font-bold">Nomor ponsel</span>
           <input
             type="tel" inputMode="tel" autoComplete="tel-national" value={v} onChange={(e) => setV(e.target.value)}
             placeholder="0812 3456 7890" aria-describedby="e"
-            className="mt-1 min-h-14 w-full rounded-xl border-2 border-[var(--color-text-muted)] bg-[var(--color-surface)] px-4 text-lg"
+            className="mt-1 min-h-14 w-full rounded-xl border-[3px] border-paint-muted/50 bg-asphalt-2 focus:border-signal px-4 text-lg"
           />
         </label>
         <p id="e" role="alert" className="text-[var(--color-sos)]">{err}</p>
-        <button disabled={busy} className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-bold text-white disabled:opacity-60">
+        <button disabled={busy} className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-extrabold text-ink disabled:opacity-60">
           {busy ? "Mengirim…" : "Kirim kode"}
         </button>
       </form>

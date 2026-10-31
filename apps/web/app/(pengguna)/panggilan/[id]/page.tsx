@@ -6,13 +6,15 @@ import { api } from "@/lib/api";
 import { CallSocket, type SocketStatus } from "@/lib/ws-client";
 import { isSilent, loadProfile, useGeo, vibrate } from "@/lib/geo";
 import { t } from "@/lib/copy";
-import { INCIDENTS } from "@/lib/incidents";
+import { paintOf } from "@/lib/incidents";
 import type { ClientCard, ClientOption, EndedData, FallbackData, StateData, TimelineData } from "@/lib/protocol";
 import { CallHeader, type CallPhase } from "@/components/CallHeader";
 import { QuestionCard, type AnswerStatus } from "@/components/QuestionCard";
 import { ShortInputSheet } from "@/components/ShortInputSheet";
-import { HelpTimeline } from "@/components/HelpTimeline";
-import { CloseIcon, IncidentIcon, SosIcon, WaveIcon } from "@/components/icons";
+import { RouteBoard, type Stop } from "@/components/RouteBoard";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { CheckIcon, CloseIcon, IncidentIcon, SosIcon, WaveIcon } from "@/components/icons";
 
 const CSS = `
 .call-flash{position:fixed;inset:0;border:8px solid var(--color-primary);pointer-events:none;z-index:60;animation:jflash 300ms ease-out forwards}
@@ -76,6 +78,8 @@ export default function PanggilanPage() {
   const [confirm, setConfirm] = useState(false);
   const [showOfficer, setShowOfficer] = useState(false);
   const [name, setName] = useState("");
+  const [hasAddress, setHasAddress] = useState(false);
+  const [answeredN, setAnsweredN] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
 
   const sock = useRef<CallSocket | null>(null);
@@ -147,6 +151,7 @@ export default function PanggilanPage() {
         else if (m.data.status === "spoken") {
           setAns("sent");
           answered.current += 1;
+          setAnsweredN(answered.current);
           vibrate(50);
         } else {
           setChosen(null);
@@ -200,7 +205,10 @@ export default function PanggilanPage() {
 
   // Best-effort extras: name for the "show officer" screen, contacts for the SMS fallback.
   useEffect(() => {
-    loadProfile().then((p) => p?.display_name && setName(p.display_name));
+    loadProfile().then((p) => {
+      if (p?.display_name) setName(p.display_name);
+      setHasAddress(typeof p?.address === "string" && p.address.trim() !== "");
+    });
     api<Contact[] | { contacts: Contact[] }>("/v1/me/contacts")
       .then((r) => setContacts(Array.isArray(r) ? r : r.contacts))
       .catch(() => {});
@@ -241,116 +249,114 @@ export default function PanggilanPage() {
     return (
       <main className="mx-auto max-w-[480px] space-y-4 p-4">
         <h1 className="text-[24px] font-bold">Sesi panggilan tidak ditemukan</h1>
-        <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-bold text-white">
+        <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-extrabold text-ink">
           Kembali ke beranda
         </Link>
       </main>
     );
 
-  const incidentLabel = INCIDENTS.find((i) => i.id === sess.incident)?.label ?? "Umum";
+  const paint = paintOf(sess.incident);
+  const incidentLabel = paint.label;
   const phase: CallPhase = fb ? "failed" : startedAt ? "connected" : "dialing";
   const total = card ? card.total : 0;
   const idx = card ? card.index + 1 : 0; // server index is 0-based
   const waiting = st.state === "MENYEDERHANAKAN";
 
+  // The route board: every stop is derived from state the server already sends, nothing new on the wire.
+  const openerDone = startedAt !== null && st.state !== "PEMBUKA" && !opener?.speaking;
+  const knows = [incidentLabel.toLowerCase(), ...(fix || hasAddress || tl.location_confirmed_at ? ["alamat Anda"] : [])].join(" dan ");
+  const stops: Stop[] = [
+    {
+      label: startedAt ? "Tersambung ke 112" : "Menelepon 112",
+      sub: !startedAt && st.attempt > 1 ? t("call.attempt", { n: st.attempt }) : undefined,
+      state: startedAt ? "done" : "current",
+    },
+    {
+      label: openerDone ? `Operator tahu ${knows}` : t("call.opener.title"),
+      state: !startedAt ? "todo" : openerDone ? "done" : "current",
+    },
+    {
+      label: "Operator bertanya",
+      sub: openerDone && !dispatched && answeredN > 0 ? `${answeredN} pertanyaan dijawab` : undefined,
+      state: !openerDone ? "todo" : dispatched ? "done" : "current",
+    },
+    { label: "Petugas berangkat", state: dispatched ? "done" : "todo" },
+  ];
+
   let view: React.ReactNode;
   if (fb) {
-    const body = fb.sms_text;
     view = (
       <section aria-labelledby="fb-title" className="space-y-4">
-        <div className="flex items-center gap-3 text-[color:var(--color-sos)]">
+        <div className="flex items-center gap-4 rounded-[14px] bg-sos p-4 text-white">
           <SosIcon size={40} />
-          <h2 id="fb-title" className="text-[32px] font-bold leading-10 text-[color:var(--color-text)]">{t("fallback.title")}</h2>
+          <h2 id="fb-title" className="text-[26px] leading-8 font-extrabold tracking-[-0.01em]">{t("fallback.title")}</h2>
         </div>
-        {fb.contacts_notified > 0 && <p>{t("fallback.contacts_notified")}</p>}
+        {fb.contacts_notified > 0 && (
+          <p className="flex items-center gap-3 rounded-[12px] bg-asphalt-2 p-4 text-[18px] leading-7 font-bold">
+            <span className="text-done"><CheckIcon size={24} /></span>
+            {t("fallback.contacts_notified")}
+          </p>
+        )}
         {fb.can_retry ? (
-          <button
-            type="button"
-            onClick={() => sock.current?.send("retry", {})}
-            className="min-h-[64px] w-full rounded-[12px] bg-[color:var(--color-primary)] text-[18px] font-bold text-white"
-          >
-            {t("fallback.retry")}
-          </button>
+          <Button size="xl" className="w-full" onClick={() => sock.current?.send("retry", {})}>{t("fallback.retry")}</Button>
         ) : (
           <>
-            <p className="font-bold">Hubungi orang di sekitar Anda.</p>
-            <button
-              type="button"
-              onClick={() => setShowOfficer(true)}
-              className="min-h-[64px] w-full rounded-[12px] bg-[color:var(--color-primary)] text-[18px] font-bold text-white"
-            >
-              Tunjukkan layar ke orang lain
-            </button>
+            <p className="text-[18px] font-bold">Hubungi orang di sekitar Anda.</p>
+            <Button size="xl" className="w-full" onClick={() => setShowOfficer(true)}>Tunjukkan layar ke orang lain</Button>
           </>
         )}
         <div className="space-y-2">
           {(contacts.length ? contacts : [{ name: "", phone: "" }]).map((c, i) => (
-            <a
-              key={i}
-              href={smsHref(c.phone, body)}
-              className="flex min-h-[56px] items-center justify-center rounded-[12px] border-2 border-[color:var(--color-primary)] font-bold text-[color:var(--color-accent)]"
-            >
-              {t("fallback.sms")}{c.name ? `: ${c.name}` : ""}
-            </a>
+            <Button key={i} asChild variant="outline" size="lg" className="w-full">
+              <a href={smsHref(c.phone, fb.sms_text)}>{t("fallback.sms")}{c.name ? `: ${c.name}` : ""}</a>
+            </Button>
           ))}
         </div>
       </section>
     );
   } else if (dispatched) {
     view = (
-      <>
-        {card && (
-          <QuestionCard
-            ref={cardRef} card={card} chosen={chosen} status={ans} gpsAccuracy={fix?.accuracy_m ?? null}
-            pendingAfter={Math.max(0, total - idx)} silentDot={isSilent()} onOption={choose} onRepeat={repeat}
-          />
-        )}
-        <HelpTimeline timeline={{ ...tl, answered_at: tl.answered_at ?? (startedAt ? new Date(startedAt).toISOString() : null) }} onShow={() => setShowOfficer(true)} />
-      </>
+      <section className="space-y-5" aria-labelledby="help-title">
+        <div className="flex items-center gap-4 rounded-[14px] p-4" style={{ background: "var(--done)", color: "var(--ink-dark)" }}>
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-ink text-done"><CheckIcon size={34} /></span>
+          <h2 id="help-title" className="text-[28px] leading-8 font-extrabold tracking-[-0.01em]">{t("help.title")}</h2>
+        </div>
+        <RouteBoard stops={stops} paint={paint} />
+        <p className="rounded-[12px] bg-asphalt-2 p-4 text-[18px] leading-7 font-bold">{t("help.stay_safe")}</p>
+        <Button size="xl" className="w-full" onClick={() => setShowOfficer(true)}>Tunjukkan ke petugas</Button>
+      </section>
     );
   } else if (card) {
     view = (
       <>
-        {ans === "sent" && waiting && <p className="text-[color:var(--color-text-muted)]">Menyiapkan pertanyaan…</p>}
+        <RouteBoard stops={stops} paint={paint} compact />
+        {ans === "sent" && waiting && <p className="text-paint-muted">Menyiapkan pertanyaan…</p>}
         <QuestionCard
           ref={cardRef} card={card} chosen={chosen} status={ans} gpsAccuracy={fix?.accuracy_m ?? null}
           pendingAfter={Math.max(0, total - idx)} silentDot={isSilent()} onOption={choose} onRepeat={repeat}
         />
-        {ansErr && <p role="alert" className="font-bold text-[color:var(--color-sos)]">{ansErr}</p>}
+        {ansErr && <p role="alert" className="font-bold text-signal">{ansErr}</p>}
         {infos.map((x, i) => (
-          <p key={i} className="rounded-[12px] bg-[color:var(--color-surface)] p-3 text-[16px] leading-6">{x}</p>
+          <p key={i} className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6">{x}</p>
         ))}
       </>
     );
-  } else if (!startedAt) {
-    view = (
-      <section className="space-y-4 text-center" aria-labelledby="dial-title">
-        <div className="flex animate-pulse justify-center text-[color:var(--color-accent)]"><IncidentIcon id={sess.incident} size={96} /></div>
-        <h1 id="dial-title" className="text-[32px] font-bold leading-10">{t("call.dialing")}</h1>
-        <p className="text-[18px]">{t("call.wait")}</p>
-        {st.attempt > 1 && <p className="text-[16px] text-[color:var(--color-text-muted)]">{t("call.attempt", { n: st.attempt })}</p>}
-        <OpenerText text={sess.opener || `Panggilan relay otomatis untuk ${incidentLabel}.`} />
-      </section>
-    );
-  } else if (st.state === "PEMBUKA" || (opener && opener.speaking)) {
-    view = (
-      <section className="space-y-4 text-center" aria-labelledby="op-title">
-        <div className="flex animate-pulse justify-center text-[color:var(--color-accent)]"><WaveIcon size={96} /></div>
-        <h2 id="op-title" className="text-[32px] font-bold leading-10">{t("call.opener.title")}</h2>
-        <p className="text-[18px]">{t("call.wait")}</p>
-        <OpenerText text={opener?.text ?? sess.opener} />
-      </section>
-    );
   } else {
+    // Waiting stages (dialing, opener, listening) share one layout: the route is the screen.
+    const speaking = startedAt !== null && (st.state === "PEMBUKA" || !!opener?.speaking);
     view = (
-      <section className="space-y-4 text-center" aria-live="polite">
-        <div className="flex justify-center text-[color:var(--color-accent)]"><WaveIcon size={64} /></div>
-        <p className="text-[24px] font-bold">{opSpeaking ? t("call.operator_speaking") : "Mendengarkan operator…"}</p>
-        {partial && <p className="rounded-[12px] bg-[color:var(--color-surface)] p-3 text-left text-[16px] leading-6">{partial}</p>}
-        {waiting && <p className="text-[color:var(--color-text-muted)]">Menyiapkan pertanyaan…</p>}
+      <section className="space-y-5" aria-live="polite">
+        <h1 className="sr-only">{!startedAt ? t("call.dialing") : speaking ? t("call.opener.title") : "Mendengarkan operator"}</h1>
+        <RouteBoard stops={stops} paint={paint} />
+        <p className="flex min-h-14 items-center gap-3 rounded-[12px] bg-asphalt-2 px-4 text-[18px] leading-6 font-bold">
+          {startedAt && opSpeaking ? <WaveIcon size={24} /> : <span aria-hidden className="size-3 shrink-0 animate-pulse rounded-full bg-signal" />}
+          {startedAt && opSpeaking ? t("call.operator_speaking") : waiting ? "Menyiapkan pertanyaan…" : t("call.wait")}
+        </p>
+        {partial && <p className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6 text-paint-muted">{partial}</p>}
         {infos.map((x, i) => (
-          <p key={i} className="rounded-[12px] bg-[color:var(--color-surface)] p-3 text-left text-[16px] leading-6">{x}</p>
+          <p key={i} className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6">{x}</p>
         ))}
+        <OpenerText text={opener?.text ?? (sess.opener || `Panggilan relay otomatis untuk ${incidentLabel}.`)} />
       </section>
     );
   }
@@ -359,24 +365,19 @@ export default function PanggilanPage() {
     <div className="mx-auto min-h-dvh w-full max-w-[480px]">
       <style>{CSS}</style>
       {flash > 0 && <div key={flash} className="call-flash" aria-hidden />}
-      <CallHeader
-        phase={phase} attempt={st.attempt} maxAttempts={st.max_attempts} startedAt={startedAt}
-        practice={sess.practice} speaking={opSpeaking} onCancel={() => setConfirm(true)}
-      />
-      {conn === "reconnecting" && <p role="status" className="bg-[color:var(--color-warning-bg)] px-4 py-1 text-[16px] text-[color:var(--color-warning)]">Menyambung ulang…</p>}
+      <CallHeader phase={phase} incident={sess.incident} startedAt={startedAt} practice={sess.practice} onCancel={() => setConfirm(true)} />
+      {conn === "reconnecting" && <p role="status" className="bg-warning-bg px-4 py-1.5 text-[16px] font-bold text-signal">Menyambung ulang…</p>}
       {authFailed && (
-        <div role="alert" className="space-y-3 bg-[color:var(--color-warning-bg)] px-4 py-3">
-          <p className="text-[18px] font-bold text-[color:var(--color-warning)]">Sesi panggilan tidak bisa diverifikasi. Silakan mulai ulang dari beranda.</p>
-          <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-bold text-white">
-            Kembali ke beranda
-          </Link>
+        <div role="alert" className="space-y-3 bg-warning-bg px-4 py-3">
+          <p className="text-[18px] font-bold text-signal">Sesi panggilan tidak bisa diverifikasi. Silakan mulai ulang dari beranda.</p>
+          <Button asChild size="lg" className="w-full"><Link href="/">Kembali ke beranda</Link></Button>
         </div>
       )}
-      {conn === "closed" && !authFailed && <p role="alert" className="bg-[color:var(--color-warning-bg)] px-4 py-1 text-[16px] text-[color:var(--color-warning)]">Sambungan terputus.</p>}
+      {conn === "closed" && !authFailed && <p role="alert" className="bg-warning-bg px-4 py-1.5 text-[16px] font-bold text-signal">Sambungan terputus.</p>}
       {(deg === 2 || deg === 3) && (
-        <p className="px-4 pt-2 text-[16px] text-[color:var(--color-warning)]">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
+        <p className="px-4 pt-2 text-[16px] font-bold text-signal">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
       )}
-      <main className="space-y-4 px-4 pb-8 pt-4">{view}</main>
+      <main className="space-y-4 px-4 pt-4 pb-8">{view}</main>
 
       {sheet && (
         <ShortInputSheet
@@ -386,24 +387,28 @@ export default function PanggilanPage() {
         />
       )}
 
-      {confirm && (
-        <div role="alertdialog" aria-modal="true" aria-labelledby="cc-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-[400px] space-y-4 rounded-[16px] bg-[color:var(--color-surface)] p-4">
-            <h2 id="cc-title" className="text-[24px] font-bold">{t("call.cancel.confirm")}</h2>
-            <div className="flex gap-3">
-              <button type="button" autoFocus onClick={() => setConfirm(false)} className="min-h-[56px] flex-1 rounded-[12px] border-2 border-[color:var(--color-primary)] font-bold text-[color:var(--color-accent)]">Tidak</button>
-              <button type="button" onClick={cancel} className="min-h-[56px] flex-1 rounded-[12px] bg-[color:var(--color-sos)] font-bold text-white">Ya</button>
-            </div>
+      <Dialog open={confirm} onOpenChange={setConfirm}>
+        <DialogContent role="alertdialog" showCloseButton={false} className="max-w-[400px] rounded-[16px] bg-asphalt-2 p-5">
+          <DialogTitle className="text-[26px] leading-8 font-extrabold">{t("call.cancel.confirm")}</DialogTitle>
+          <DialogDescription className="text-[17px] leading-6 text-paint-muted">Operator 112 tidak bisa lagi bertanya kepada Anda.</DialogDescription>
+          <div className="mt-2 flex gap-3">
+            <Button autoFocus size="lg" variant="outline" className="flex-1" onClick={() => setConfirm(false)}>Tidak</Button>
+            <Button size="lg" variant="sos" className="flex-1" onClick={cancel}>Ya, batalkan</Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {showOfficer && (
-        <div role="dialog" aria-modal="true" aria-label="Ringkasan untuk petugas" className="fixed inset-0 z-50 flex flex-col justify-center gap-4 bg-[color:var(--color-surface)] p-6">
-          <button type="button" onClick={() => setShowOfficer(false)} aria-label="Tutup" className="absolute right-3 top-3 flex min-h-[56px] min-w-[56px] items-center justify-center"><CloseIcon size={32} /></button>
-          <p className="text-[40px] font-bold leading-tight">{name || "Pengguna"}</p>
-          <p className="text-[32px] leading-10">{incidentLabel}</p>
-          <p className="text-[32px] leading-10">Saya tuli. Tolong bantu saya.</p>
+        <div
+          role="dialog" aria-modal="true" aria-label="Ringkasan untuk petugas"
+          style={{ background: paint.bg, color: paint.fg }}
+          className="fixed inset-0 z-50 flex flex-col justify-center gap-5 p-7"
+        >
+          <button type="button" onClick={() => setShowOfficer(false)} aria-label="Tutup" className="absolute top-3 right-3 flex size-14 items-center justify-center"><CloseIcon size={34} /></button>
+          <IncidentIcon id={sess.incident} size={72} />
+          <p className="text-[44px] leading-[48px] font-extrabold tracking-[-0.02em]">Saya tuli. Tolong bantu saya.</p>
+          <p className="text-[30px] leading-9 font-bold">{incidentLabel}</p>
+          {name && <p className="text-[24px] leading-8">Nama: {name}</p>}
         </div>
       )}
     </div>
