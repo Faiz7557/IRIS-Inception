@@ -4,12 +4,14 @@ STT ignores audio (drive turns with the console's `operator_text`), the simplifi
 ya/tidak card, TTS streams 0.1 s of silence, reverse geocoding returns None. No network calls.
 """
 from datetime import UTC, datetime
+import json
+import os
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import auth
 from config import PHRASES
-
 if not auth.dev_mode():  # second lock behind main.check_dev_flags: never fake providers in prod
     raise RuntimeError("fakes.py imported but J112_ENV is not dev/test")
 from protocol import Card, Option
@@ -40,10 +42,48 @@ class FakeTTS:
         return SILENCE
 
 
+def _load_replay_cards(transcript: str) -> list[Card] | None:
+    raw_path = os.environ.get("J112_LLM_REPLAY")
+    if not raw_path:
+        return None
+    p = Path(raw_path)
+    if not p.is_file():
+        repo_root = Path(__file__).resolve().parents[2]
+        alt = repo_root / raw_path
+        if alt.is_file():
+            p = alt
+        else:
+            return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        turns = data if isinstance(data, list) else data.get("turns", [data])
+        match = next((t for t in turns if isinstance(t, dict) and t.get("transcript") == transcript), None)
+        if match is None and turns and isinstance(turns[0], dict):
+            match = turns[0]
+        if match:
+            raw_cards = match.get("cards") or match.get("kartu")
+            if isinstance(raw_cards, list):
+                res = []
+                for c in raw_cards:
+                    if isinstance(c, dict):
+                        c = dict(c)
+                        c.setdefault("card_id", uuid4())
+                        c.setdefault("transcript", transcript)
+                        res.append(Card(**c))
+                if res:
+                    return res
+    except Exception:
+        pass
+    return None
+
+
 async def simplify(transcript: str, incident: str, history: list[dict], force_fail: bool = False) -> SimplifyResult:
     t = datetime.now(UTC)
     if force_fail:
         return SimplifyResult([generic_card(transcript)], "forced", 1, None, None, None, t, t)
+    replayed = _load_replay_cards(transcript)
+    if replayed:
+        return SimplifyResult(replayed, "ok", 0, None, None, None, t, t)
     card = Card(card_id=uuid4(), kind="ya_tidak", question="Korban sadar?", transcript=transcript,
                 options=[Option(label="Ya", action="ucap", spoken="Ya, korban sadar."),
                          Option(label="Tidak", action="ucap", spoken="Tidak, korban tidak sadar."),
