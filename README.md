@@ -191,6 +191,14 @@ npm run dev
 
 Set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
+Supabase lokal (`npx supabase start` dari root repo, butuh Docker; set `SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN=placeholder`). Nomor uji `081200000001` memakai kode `112112`. Nomor lain juga bisa: OTP tidak dikirim lewat SMS, tetapi disimpan oleh hook `dev_send_sms` (`supabase/seed.sql`). Baca kodenya dengan:
+
+```
+docker exec supabase_db_jembatan-112 psql -U postgres -tAc "select phone, otp from public.dev_sms_outbox order by created_at desc limit 3"
+```
+
+Hook ini hanya untuk lokal. Proyek Supabase hosted tetap butuh penyedia SMS sungguhan (lihat K4).
+
 Mode fake-provider (tanpa jaringan dan tanpa database, hanya untuk dev):
 
 ```

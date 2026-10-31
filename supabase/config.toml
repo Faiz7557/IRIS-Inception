@@ -10,3 +10,8 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 [auth.sms.test_otp]
 6281200000001 = "112112"
 6281200000002 = "112112"
+
+# Local dev: OTPs go to public.dev_sms_outbox (supabase/seed.sql) instead of Twilio.
+[auth.hook.send_sms]
+enabled = true
+uri = "pg-functions://postgres/public/dev_send_sms"
