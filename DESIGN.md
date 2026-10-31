@@ -1,6 +1,6 @@
 # Design: Trayek Angkot
 
-Scope: the user side of the PWA (`apps/web`, everything except `/konsol`). The operator console keeps its own light palette in `app/konsol/console.css`.
+Scope: the whole web app. The user side (phone) is the night register described first; the operator console (`/konsol`) is the paper register at the end.
 
 Every call is one angkot route. The incident is the paint on the van; the call is the route board whose stops fill in as the operator learns each fact. Built for a deaf user in a panic, one-handed, often in the dark or in smoke.
 
@@ -72,3 +72,27 @@ Short ease-out only: 150–200ms on press scale (0.97–0.98), tile dimming and 
 - Each call stage keeps the same column, scale and baseline so a change reads without re-reading.
 - The route only grows downward; stops never jump back.
 - No claims of user testing or real 112 integration anywhere in the UI.
+
+## Console: paper register
+
+The dispatch office's copy of the same route, for a lit room and a projector. Tokens are scoped to `.console-shell` in `app/konsol/console.css`.
+
+| Token | Value | Job |
+|---|---|---|
+| `--paper` | `#f4f1ea` | Page ground |
+| `--panel` | `#ffffff` | Panels |
+| `--rule` | `#e2ded3` | Dividers, input borders, idle toggles |
+| `--ink` | `#15171b` | Text, primary buttons, top bar |
+| `--ink-muted` | `#5d5a52` | Secondary text (6.6:1 on paper) |
+| `--done-paper` | `#1f9d55` | Latency on target, "Petugas dikirim" |
+| `--amber-paper` | `#b7791f` | Latency over target but under the warn line |
+
+Incident paints, SOS red and signal yellow are shared with the phone. Notices use signal yellow with ink; red is reserved for SOS, hang-up and forced failures.
+
+Layout at 1280–1600: asphalt top bar (`ConsoleBar`: name, SIMULASI chip, connection dot, page actions). Call screen in three columns:
+
+- Left 340px: incident paint plate with a 40px mono clock, the shared `RouteBoard` with `tone="light"`, and the action stack (Angkat ink 64px, Petugas dikirim green, Tutup panggilan red, Tolak outline).
+- Centre: two latency readouts (last value 44px mono, coloured against the paper's targets A ≤ 3 dtk and B ≤ 1 dtk, median and turn count beneath), the conversation as bubbles (operator ink on the right, system paper on the left), and the operator input where Enter sends and Shift+Enter breaks a line.
+- Right 380px: a phone-frame preview of the user's current card in the night register, failure simulation L1–L3 as 56px toggles, codec switch, mic level bar, simulated SMS.
+
+Below 1180px the right column drops under the other two; below 860px everything stacks.

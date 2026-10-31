@@ -12,21 +12,25 @@ export interface Stop {
  * The call drawn as an angkot route: stops fill in one at a time, top to bottom, in the incident's paint.
  * `compact` is the one-line strip shown above a question card.
  */
-export function RouteBoard({ stops, paint, compact = false }: { stops: Stop[]; paint: { bg: string; fg: string }; compact?: boolean }) {
+export function RouteBoard({
+  stops, paint, compact = false, tone = "dark",
+}: { stops: Stop[]; paint: { bg: string; fg: string }; compact?: boolean; tone?: "dark" | "light" }) {
+  // "light" is the console's paper register; the phone stays on night asphalt.
+  const muted = tone === "light" ? "text-[#5d5a52]" : "text-paint-muted";
   const current = stops.find((s) => s.state === "current") ?? [...stops].reverse().find((s) => s.state === "done");
 
   if (compact) {
     return (
-      <div className="rounded-[12px] bg-asphalt-2 px-3 pt-3 pb-2" aria-label={`Rute panggilan: ${current?.label ?? ""}`}>
+      <div className={`rounded-[12px] px-3 pt-3 pb-2 ${tone === "light" ? "bg-white" : "bg-asphalt-2"}`} aria-label={`Rute panggilan: ${current?.label ?? ""}`}>
         <ol className="flex items-center" aria-hidden>
           {stops.map((s, i) => (
             <li key={s.label} className="flex flex-1 items-center last:flex-none">
-              <Dot state={s.state} paint={paint} small />
-              {i < stops.length - 1 && <Segment on={s.state === "done"} paint={paint} horizontal />}
+              <Dot state={s.state} paint={paint} tone={tone} small />
+              {i < stops.length - 1 && <Segment on={s.state === "done"} paint={paint} tone={tone} horizontal />}
             </li>
           ))}
         </ol>
-        <p className="mt-1.5 text-[15px] leading-6 font-bold text-paint-muted">{current?.label}</p>
+        <p className={`mt-1.5 text-[15px] leading-6 font-bold ${muted}`}>{current?.label}</p>
       </div>
     );
   }
@@ -36,8 +40,8 @@ export function RouteBoard({ stops, paint, compact = false }: { stops: Stop[]; p
       {stops.map((s, i) => (
         <li key={s.label} className="flex gap-4" aria-current={s.state === "current" ? "step" : undefined}>
           <div className="flex w-11 shrink-0 flex-col items-center">
-            <Dot state={s.state} paint={paint} />
-            {i < stops.length - 1 && <Segment on={s.state === "done"} paint={paint} />}
+            <Dot state={s.state} paint={paint} tone={tone} />
+            {i < stops.length - 1 && <Segment on={s.state === "done"} paint={paint} tone={tone} />}
           </div>
           <div className={`pb-6 ${s.state === "current" ? "pt-1" : "pt-2"}`}>
             <p
@@ -46,13 +50,13 @@ export function RouteBoard({ stops, paint, compact = false }: { stops: Stop[]; p
                   ? "text-[26px] leading-8 font-extrabold tracking-[-0.01em]"
                   : s.state === "done"
                     ? "text-[19px] leading-7 font-bold"
-                    : "text-[19px] leading-7 font-bold text-paint-muted/80"
+                    : `text-[19px] leading-7 font-bold ${muted}`
               }
             >
               {s.label}
               <span className="sr-only">{s.state === "done" ? " (sudah)" : s.state === "current" ? " (sekarang)" : " (belum)"}</span>
             </p>
-            {s.sub && <p className="mt-1 text-[16px] leading-6 text-paint-muted">{s.sub}</p>}
+            {s.sub && <p className={`mt-1 text-[16px] leading-6 ${muted}`}>{s.sub}</p>}
           </div>
         </li>
       ))}
@@ -60,10 +64,10 @@ export function RouteBoard({ stops, paint, compact = false }: { stops: Stop[]; p
   );
 }
 
-function Dot({ state, paint, small = false }: { state: StopState; paint: { bg: string; fg: string }; small?: boolean }) {
+function Dot({ state, paint, tone, small = false }: { state: StopState; paint: { bg: string; fg: string }; tone: "dark" | "light"; small?: boolean }) {
   const size = small ? "size-6" : state === "current" ? "size-11" : "size-9";
   if (state === "todo")
-    return <span className={`${size} shrink-0 rounded-full border-[3px] border-dashed border-paint-muted/60`} />;
+    return <span className={`${size} shrink-0 rounded-full border-[3px] border-dashed ${tone === "light" ? "border-[#9a968c]" : "border-paint-muted/60"}`} />;
   return (
     <span
       className={`${size} relative flex shrink-0 items-center justify-center rounded-full`}
@@ -80,13 +84,13 @@ function Dot({ state, paint, small = false }: { state: StopState; paint: { bg: s
   );
 }
 
-function Segment({ on, paint, horizontal = false }: { on: boolean; paint: { bg: string }; horizontal?: boolean }) {
+function Segment({ on, paint, tone, horizontal = false }: { on: boolean; paint: { bg: string }; tone: "dark" | "light"; horizontal?: boolean }) {
   const shape = horizontal ? "mx-1 h-1.5 flex-1" : "my-1 w-1.5 flex-1 min-h-6";
   return on ? (
     <span className={`${shape} rounded-full`} style={{ background: paint.bg }} />
   ) : (
     <span
-      className={`${shape} ${horizontal ? "border-t-[3px]" : "border-l-[3px]"} border-dashed border-paint-muted/50`}
+      className={`${shape} ${horizontal ? "border-t-[3px]" : "border-l-[3px]"} border-dashed ${tone === "light" ? "border-[#9a968c]" : "border-paint-muted/50"}`}
     />
   );
 }

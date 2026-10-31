@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { IncidentIcon } from "@/components/icons";
-import { INCIDENTS } from "@/lib/incidents";
+import { paintOf } from "@/lib/incidents";
+import { Button } from "@/components/ui/button";
+import { ConsoleBar } from "./ConsoleBar";
 import type { ServerToConsole } from "@/lib/protocol";
 import { closeMessage, consoleRequest, socketUrl, TOKEN_KEY } from "./console";
 
@@ -109,24 +111,71 @@ export default function ConsoleQueue() {
     } catch (e) { setError((e as Error).message); }
   }
 
-  return <main>
-    <h1>Jembatan 112 · Konsol operator</h1>
-    <p className="console-warning">Pakai headset untuk mencegah suara sistem masuk kembali ke mikrofon. Konsol ini untuk simulasi.</p>
-    {error && <p role="alert">{error}</p>}
-    {!token ? <form className="console-panel" style={{ maxWidth: 480 }} onSubmit={login}>
-      <h2>Masuk konsol</h2><label>Sandi konsol<input type="password" autoComplete="current-password" required value={passcode} onChange={(e) => setPasscode(e.target.value)} /></label>
-      <button className="primary" disabled={busy}>{busy ? "Memeriksa…" : "Masuk"}</button>
-    </form> : <>
-      <div className="console-stack"><button onClick={enableAudio}>{micReady ? "Mikrofon dan bunyi dering siap" : "Aktifkan mikrofon dan bunyi dering"}</button>
-        <p role="status">{connected ? "Antrean tersambung" : "Antrean belum tersambung"} · {calls.length} panggilan</p></div>
-      <div className="console-stack">{calls.map((call) => <article className="console-panel" key={call.call_id}>
-        <h2><IncidentIcon id={call.incident} size={24} /> {INCIDENTS.find((i) => i.id === call.incident)?.label ?? "Darurat"}</h2>
-        <p>{call.mode} · Percobaan {call.attempt} · <span className="console-meta">{call.call_id}</span></p>
-        <Link className="console-button primary" href={`/konsol/${encodeURIComponent(call.call_id)}?incident=${call.incident}&mode=${call.mode}&attempt=${call.attempt}`}>Angkat</Link>{" "}
-        <button className="danger" onClick={() => reject(call.call_id)}>Tolak</button>
-      </article>)}</div>
-      {!calls.length && <p>Menunggu panggilan masuk…</p>}
-      <button onClick={() => { sessionStorage.removeItem(TOKEN_KEY); setToken(""); setCalls([]); }}>Keluar</button>
-    </>}
-  </main>;
+  const logout = () => { sessionStorage.removeItem(TOKEN_KEY); setToken(""); setCalls([]); };
+
+  return <>
+    <ConsoleBar
+      connected={token ? connected : null}
+      right={token && <>
+        <Button variant="outline" className="border-paint/40" onClick={enableAudio}>
+          {micReady ? "Mikrofon & dering siap" : "Aktifkan mikrofon & dering"}
+        </Button>
+        <Button variant="ghost" onClick={logout}>Keluar</Button>
+      </>}
+    />
+    <main className="mx-auto max-w-[1100px] px-6 py-8">
+      <p className="mb-6 flex items-center gap-3 rounded-[12px] bg-signal/25 px-4 py-3 text-[16px] font-bold">
+        Pakai headset agar suara sistem tidak masuk kembali ke mikrofon.
+      </p>
+      {error && <p role="alert" className="mb-6 rounded-[12px] bg-signal px-4 py-3 font-bold text-ink">{error}</p>}
+
+      {!token ? (
+        <form className="max-w-[440px] space-y-4 rounded-[16px] bg-[var(--panel)] p-6 shadow-[0_8px_24px_rgb(21_23_27/0.08)]" onSubmit={login}>
+          <h1 className="text-[30px] leading-9 font-extrabold tracking-[-0.02em]">Masuk konsol</h1>
+          <label className="block">
+            <span className="text-[16px] font-bold">Sandi konsol</span>
+            <input
+              type="password" autoComplete="current-password" required value={passcode} onChange={(e) => setPasscode(e.target.value)}
+              className="mt-1.5 min-h-14 w-full rounded-[12px] border-[3px] border-[var(--rule)] bg-white px-4 text-[18px] outline-none focus:border-ink"
+            />
+          </label>
+          <Button size="lg" disabled={busy} className="w-full bg-ink text-paint hover:bg-[#2b2f37]">{busy ? "Memeriksa…" : "Masuk"}</Button>
+        </form>
+      ) : (
+        <section aria-labelledby="queue-title">
+          <div className="mb-4 flex items-baseline justify-between">
+            <h1 id="queue-title" className="text-[30px] leading-9 font-extrabold tracking-[-0.02em]">Panggilan masuk</h1>
+            <p className="text-[16px] font-bold text-[var(--ink-muted)]" aria-live="polite">{calls.length} dalam antrean</p>
+          </div>
+          {!calls.length && (
+            <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-[16px] border-[3px] border-dashed border-[#c9c4b8] text-center">
+              <p className="text-[22px] font-extrabold">Menunggu panggilan masuk…</p>
+              <p className="text-[16px] text-[var(--ink-muted)]">Tahan SOS di ponsel pengguna untuk memulai demo.</p>
+            </div>
+          )}
+          <div className="space-y-3">
+            {calls.map((call) => {
+              const p = paintOf(call.incident);
+              return (
+                <article key={call.call_id} className="flex items-center gap-5 overflow-hidden rounded-[16px] bg-[var(--panel)] pr-5 shadow-[0_8px_24px_rgb(21_23_27/0.08)]">
+                  <div style={{ background: p.bg, color: p.fg }} className="flex w-56 shrink-0 items-center gap-3 self-stretch p-5">
+                    <span className="animate-pulse motion-reduce:animate-none"><IncidentIcon id={call.incident} size={36} /></span>
+                    <span className="text-[24px] leading-7 font-extrabold">{p.label}</span>
+                  </div>
+                  <div className="min-w-0 flex-1 py-4">
+                    <p className="text-[18px] font-bold">{call.mode === "latihan" ? "Latihan" : "Simulasi"} · Percobaan {call.attempt}</p>
+                    <p className="truncate font-mono text-[14px] text-[var(--ink-muted)]">{call.call_id}</p>
+                  </div>
+                  <Button asChild size="xl" className="bg-ink text-paint hover:bg-[#2b2f37]">
+                    <Link href={`/konsol/${encodeURIComponent(call.call_id)}?incident=${call.incident}&mode=${call.mode}&attempt=${call.attempt}`}>Angkat</Link>
+                  </Button>
+                  <Button size="xl" variant="outline" className="border-sos text-sos hover:bg-sos/10" onClick={() => reject(call.call_id)}>Tolak</Button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </main>
+  </>;
 }

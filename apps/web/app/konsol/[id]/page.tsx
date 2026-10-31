@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { IncidentIcon } from "@/components/icons";
-import { INCIDENTS } from "@/lib/incidents";
+import { paintOf } from "@/lib/incidents";
+import { Button } from "@/components/ui/button";
+import { RouteBoard, type Stop } from "@/components/RouteBoard";
+import { ConsoleBar } from "../ConsoleBar";
 import { PcmPlayer, startMic, stopMic } from "@/lib/console-audio";
 import type { Card, CallState, ConsoleToServer, ForceDegradationData, ServerToConsole } from "@/lib/protocol";
 import { closeMessage, consoleRequest, socketUrl, TOKEN_KEY } from "../console";
@@ -13,6 +16,26 @@ type Log = Extract<ServerToConsole, { type: "log" }>["data"];
 type Sms = Extract<ServerToConsole, { type: "sms_simulated" }>["data"];
 
 function latency(value: number | null) { return value === null ? "—" : `${(value / 1000).toLocaleString("id-ID", { maximumFractionDigits: 2 })} dtk`; }
+function median(xs: number[]) { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+
+const QA_STATES: CallState[] = ["MENDENGAR", "MENYEDERHANAKAN", "MENUNGGU_JAWABAN", "MEMBACAKAN"];
+
+/** One latency readout: last value large, median and the paper's target beneath, coloured against the target. */
+function Readout({ name, what, values, target, warn }: { name: string; what: string; values: number[]; target: number; warn: number }) {
+  const last = values.length ? values[values.length - 1] : null;
+  const med = median(values);
+  const tone = last === null ? "text-[var(--ink-muted)]" : last <= target ? "text-[var(--done-paper)]" : last <= warn ? "text-[var(--amber-paper)]" : "text-sos";
+  return (
+    <div className="flex-1 rounded-[14px] bg-[var(--panel)] p-4 shadow-[0_8px_24px_rgb(21_23_27/0.06)]">
+      <p className="text-[15px] font-extrabold tracking-[0.04em]">LATENSI {name}</p>
+      <p className="text-[14px] leading-5 text-[var(--ink-muted)]">{what}</p>
+      <p className={`mt-2 font-mono text-[44px] leading-[48px] font-bold tabular-nums ${tone}`}>{latency(last)}</p>
+      <p className="mt-1 text-[14px] font-bold text-[var(--ink-muted)]">
+        median {latency(med)} · target ≤ {latency(target)} · {values.length} putaran
+      </p>
+    </div>
+  );
+}
 
 export default function ConsoleCall() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +58,7 @@ export default function ConsoleCall() {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [forces, setForces] = useState<ForceDegradationData>({ llm: false, stt: false, tts: false });
+  const [dispatched, setDispatched] = useState(false);
   const socket = useRef<WebSocket | null>(null);
   const player = useRef<PcmPlayer | null>(null);
   const active = useRef(false);
@@ -134,60 +158,165 @@ export default function ConsoleCall() {
 
   const live = connected && answered && state !== "SELESAI";
   const demo = mode === "latihan" || mode === "simulasi";
-  return <main>
-    <Link href="/konsol">← Antrean panggilan</Link>
-    <h1>Konsol operator · {id.slice(0, 8)}</h1>
-    {error && <p role="alert" className="console-warning">{error}</p>}
-    <div className="console-grid">
-      <section className="console-panel">
-        <h2>Panggilan</h2>
-        <p role="status"><span className="console-badge">{state}</span> · {connected ? "Tersambung" : "Terputus"}</p>
-        <p aria-label="Durasi panggilan">{Math.floor(seconds / 60).toString().padStart(2, "0")}:{(seconds % 60).toString().padStart(2, "0")}</p>
-        <IncidentIcon id={incident} /><h3>{INCIDENTS.find((i) => i.id === incident)?.label ?? "Darurat"}</h3>
-        <p>{mode || "Mode belum tersedia"} · Percobaan {attempt}</p>
-        <div className="console-stack">
-          <button className="primary" disabled={!connected || answered || answering || state === "SELESAI"} onClick={answer}>{answering ? "Mengaktifkan audio…" : "Angkat"}</button>
-          <button disabled={!connected || answered || state === "SELESAI"} onClick={() => { if (send({ type: "reject", data: {} })) router.push("/konsol"); }}>Tolak</button>
-          <button className="primary" disabled={!live} onClick={() => send({ type: "dispatch", data: {} })}>Petugas dikirim</button>
-          <button className="danger" disabled={!live} onClick={() => { if (send({ type: "hangup", data: {} })) { active.current = false; stopMic(); router.push("/konsol"); } }}>Tutup panggilan</button>
+  const paint = paintOf(incident);
+  const latA = logs.flatMap((l) => (l.latency_a_ms === null ? [] : [l.latency_a_ms]));
+  const latB = logs.flatMap((l) => (l.latency_b_ms === null ? [] : [l.latency_b_ms]));
+  const turns = new Set(logs.filter((l) => l.who === "operator").map((l) => l.turn_no)).size;
+  const openerDone = answered && state !== "MEMANGGIL" && state !== "PEMBUKA";
+  const stops: Stop[] = [
+    { label: answered ? "Diangkat" : "Panggilan masuk", sub: !answered && attempt > 1 ? `Percobaan ${attempt}` : undefined, state: answered ? "done" : "current" },
+    { label: "Pesan pembuka dibacakan", state: !answered ? "todo" : openerDone ? "done" : "current" },
+    {
+      label: "Tanya jawab", sub: turns ? `${turns} putaran` : undefined,
+      state: !openerDone ? "todo" : dispatched || state === "SELESAI" ? "done" : QA_STATES.includes(state) ? "current" : "todo",
+    },
+    { label: "Petugas dikirim", state: dispatched ? "done" : "todo" },
+  ];
+  const sendText = () => { if (text.trim() && send({ type: "operator_text", data: { text: text.trim() } })) setText(""); };
+  const clock = `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+  const panel = "rounded-[16px] bg-[var(--panel)] shadow-[0_8px_24px_rgb(21_23_27/0.06)]";
+  const inkBtn = "bg-ink text-paint hover:bg-[#2b2f37]";
+  const inkOutline = "border-ink/40 text-ink hover:bg-[var(--rule)]";
+
+  return <>
+    <ConsoleBar connected={connected} right={<Button asChild variant="ghost"><Link href="/konsol">← Antrean</Link></Button>} />
+    <main className="mx-auto grid max-w-[1600px] grid-cols-[340px_minmax(0,1fr)_380px] gap-5 px-6 py-5 max-[1180px]:grid-cols-[300px_minmax(0,1fr)] max-[860px]:grid-cols-1">
+      {error && <p role="alert" className="col-span-full rounded-[12px] bg-signal px-4 py-3 font-bold text-ink">{error}</p>}
+
+      <section aria-label="Panggilan" className="space-y-4">
+        <div style={{ background: paint.bg, color: paint.fg }} className="rounded-[16px] p-5">
+          <div className="flex items-center gap-3">
+            <IncidentIcon id={incident} size={34} />
+            <h1 className="text-[26px] leading-8 font-extrabold tracking-[-0.01em]">{paint.label}</h1>
+          </div>
+          <p className="mt-3 font-mono text-[40px] leading-[44px] font-bold tabular-nums" aria-label="Durasi panggilan">{clock}</p>
+          <p className="mt-1 text-[15px] font-bold opacity-85">{mode === "latihan" ? "Latihan" : mode === "simulasi" ? "Simulasi" : "Mode belum tersedia"} · {id.slice(0, 8)}</p>
         </div>
-        <p className="console-meta">Pakai headset. Satu konsol menangani satu panggilan aktif.</p>
+        <div className={`${panel} p-5`}>
+          <RouteBoard stops={stops} paint={paint} tone="light" />
+          <p className="-mt-2 font-mono text-[13px] text-[var(--ink-muted)]" role="status">Status mesin: {state}</p>
+        </div>
+        <div className="space-y-2.5">
+          {!answered && (
+            <Button size="xl" className={`w-full ${inkBtn}`} disabled={!connected || answering || state === "SELESAI"} onClick={answer}>
+              {answering ? "Mengaktifkan audio…" : "Angkat"}
+            </Button>
+          )}
+          <Button size="xl" className="w-full bg-[var(--done-paper)] text-white hover:bg-[#178244]" disabled={!live || dispatched} onClick={() => { if (send({ type: "dispatch", data: {} })) setDispatched(true); }}>
+            {dispatched ? "Petugas sudah dikirim" : "Petugas dikirim"}
+          </Button>
+          <Button size="lg" variant="sos" className="w-full" disabled={!live} onClick={() => { if (send({ type: "hangup", data: {} })) { active.current = false; stopMic(); router.push("/konsol"); } }}>
+            Tutup panggilan
+          </Button>
+          {!answered && (
+            <Button size="lg" variant="outline" className={`w-full ${inkOutline}`} disabled={!connected || state === "SELESAI"} onClick={() => { if (send({ type: "reject", data: {} })) router.push("/konsol"); }}>
+              Tolak
+            </Button>
+          )}
+        </div>
       </section>
-      <section className="console-panel">
-        <h2>Percakapan</h2>
-        <div className="console-log" role="log" aria-label="Log percakapan" aria-live="polite">
-          {!logs.length && <p className="console-meta">Percakapan akan muncul setelah panggilan diangkat.</p>}
-          {logs.map((log, index) => <article className={`console-bubble ${log.who === "operator" ? "operator" : ""}`} key={index}>
-            <strong>{log.who === "operator" ? "Operator" : "Sistem"}</strong><p>{log.text}</p>
-            <span className="console-meta">Putaran {log.turn_no}</span><span className="console-badge">A {latency(log.latency_a_ms)}</span><span className="console-badge">B {latency(log.latency_b_ms)}</span>
-          </article>)}<div ref={logEnd} />
+
+      <section aria-label="Percakapan" className="flex min-w-0 flex-col gap-4">
+        <div className="flex gap-4">
+          <Readout name="A" what="Operator selesai bicara → tombol muncul" values={latA} target={3000} warn={4500} />
+          <Readout name="B" what="Pengguna mengetuk → operator mendengar" values={latB} target={1000} warn={1500} />
         </div>
-        {card && <section className="console-card" aria-label="Pratinjau kartu pengguna">
-          <h3>Kartu pengguna · {card.kind}</h3><p>{card.question}</p>
-          {card.options.map((option, index) => <div key={index}><span className="console-badge">{option.label}</span><small>{option.spoken}</small></div>)}
-          <p className="console-meta">{card.transcript} · Degradasi L{card.degradation}</p>
-        </section>}
-        <button style={{ width: "100%", marginTop: 16 }} disabled={!live || muted} onClick={() => {
+        <div className={`flex min-h-0 flex-1 flex-col ${panel}`}>
+          <h2 className="border-b-2 border-[var(--rule)] px-5 py-3 text-[18px] font-extrabold">Percakapan</h2>
+          <div className="console-scroll flex h-[44vh] flex-col gap-3 overflow-auto p-5" role="log" aria-label="Log percakapan" aria-live="polite">
+            {!logs.length && <p className="m-auto text-[16px] text-[var(--ink-muted)]">Percakapan muncul setelah panggilan diangkat.</p>}
+            {logs.map((log, index) => {
+              const op = log.who === "operator";
+              return (
+                <article key={index} className={`max-w-[82%] rounded-[14px] px-4 py-3 ${op ? "self-end bg-ink text-paint" : "self-start bg-[var(--paper)]"}`}>
+                  <p className={`text-[13px] font-extrabold tracking-[0.04em] ${op ? "text-paint-muted" : "text-[var(--ink-muted)]"}`}>{op ? "OPERATOR" : "SISTEM"} · PUTARAN {log.turn_no}</p>
+                  <p className="mt-1 text-[17px] leading-6">{log.text}</p>
+                  {(log.latency_a_ms !== null || log.latency_b_ms !== null) && (
+                    <p className={`mt-1.5 font-mono text-[13px] tabular-nums ${op ? "text-paint-muted" : "text-[var(--ink-muted)]"}`}>
+                      {[log.latency_a_ms !== null ? `A ${latency(log.latency_a_ms)}` : null, log.latency_b_ms !== null ? `B ${latency(log.latency_b_ms)}` : null].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </article>
+              );
+            })}
+            <div ref={logEnd} />
+          </div>
+          <form className="flex gap-3 border-t-2 border-[var(--rule)] p-4" onSubmit={(e) => { e.preventDefault(); sendText(); }}>
+            <label htmlFor="operator-text" className="sr-only">Ketik ucapan operator</label>
+            <textarea
+              id="operator-text" rows={2} value={text} onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendText(); } }}
+              placeholder={live ? "Ketik ucapan operator, Enter untuk kirim" : "Angkat panggilan dulu"}
+              disabled={!live}
+              className="min-h-14 flex-1 resize-none rounded-[12px] border-[3px] border-[var(--rule)] bg-white px-4 py-2.5 text-[17px] outline-none focus:border-ink disabled:opacity-50"
+            />
+            <Button size="lg" className={`self-stretch ${inkBtn}`} disabled={!live || !text.trim()}>Kirim</Button>
+          </form>
+        </div>
+        <Button size="lg" variant="outline" className={inkOutline} disabled={!live || muted} onClick={() => {
           if (micOn) { stopMic(); setMicOn(false); setLevel(0); } else void microphone();
-        }}>{muted ? "Sistem bicara, mikrofon dijeda" : micOn ? "Mikrofon aktif" : "Aktifkan mikrofon"}</button>
+        }}>{muted ? "Sistem bicara, mikrofon dijeda" : micOn ? "Mikrofon aktif · ketuk untuk mematikan" : "Aktifkan mikrofon"}</Button>
       </section>
-      <aside className="console-panel">
-        <h2>Panel demo</h2>
-        <label><input type="checkbox" checked={mulaw} disabled={answered || answering} onChange={(e) => setMulaw(e.target.checked)} />Simulasi kodek 8 kHz</label>
-        <p className="console-meta">Kodek dikunci setelah Angkat.</p>
-        <fieldset disabled={!connected || !demo || state === "SELESAI"}>
-          <legend>Simulasi kegagalan</legend>
-          {([ ["llm", "Paksa LLM gagal (L1)"], ["stt", "Paksa STT gagal (L2)"], ["tts", "Paksa TTS gagal (L3)"] ] as const).map(([key, label]) => <label key={key}>
-            <input type="checkbox" checked={forces[key]} onChange={(e) => { const next = { ...forces, [key]: e.target.checked }; if (send({ type: "force_degradation", data: next })) setForces(next); }} />{label}
-          </label>)}
-        </fieldset>
-        <form onSubmit={(e) => { e.preventDefault(); if (text.trim() && send({ type: "operator_text", data: { text: text.trim() } })) setText(""); }}>
-          <label htmlFor="operator-text">Ketik ucapan (debug)</label><textarea id="operator-text" rows={3} required value={text} onChange={(e) => setText(e.target.value)} />
-          <button disabled={!live || !text.trim()}>Kirim ucapan</button>
-        </form>
-        <h3>Level mikrofon</h3><meter aria-label="Level mikrofon" min={0} max={1} value={level} /><p className="console-meta">{muted ? "Bingkai mikrofon dijeda" : micOn ? "Mikrofon merekam" : "Mikrofon mati"}</p>
-        <h3>SMS simulasi</h3><div aria-live="polite">{!sms.length && <p className="console-meta">Belum ada SMS simulasi.</p>}{sms.map((message, index) => <article className="console-card" key={index}><strong>{message.to}</strong><p>{message.text}</p></article>)}</div>
+
+      <aside aria-label="Panel demo" className="space-y-4 max-[1180px]:col-span-full max-[1180px]:grid max-[1180px]:grid-cols-2 max-[1180px]:gap-4 max-[1180px]:space-y-0 max-[860px]:grid-cols-1">
+        <section aria-label="Layar pengguna" className={`${panel} p-4`}>
+          <h2 className="mb-3 text-[18px] font-extrabold">Layar pengguna tuli</h2>
+          <div className="mx-auto w-[300px] rounded-[30px] border-[6px] border-ink bg-asphalt p-4 text-paint">
+            {card ? (
+              <div className="space-y-2.5">
+                {card.degradation > 0 && <p className="inline-block rounded-[6px] bg-warning-bg px-2 text-[13px] font-bold text-signal">Degradasi L{card.degradation}</p>}
+                <p className={`text-[24px] leading-7 font-extrabold ${card.kind === "instruksi" ? "rounded-[10px] bg-signal p-2 text-ink" : ""}`}>{card.question}</p>
+                {card.options.map((o, i) => (
+                  <div key={i} title={o.spoken} className={`flex min-h-12 items-center justify-center rounded-[10px] text-[17px] font-extrabold ${/tidak tahu/i.test(o.label) ? "border-[3px] border-paint/60" : "bg-paint text-ink"}`}>
+                    {o.label}
+                  </div>
+                ))}
+                <p className="pt-1 font-mono text-[12px] leading-4 text-paint-muted">{card.kind}</p>
+              </div>
+            ) : (
+              <p className="py-10 text-center text-[15px] text-paint-muted">Kartu muncul di sini saat operator bertanya.</p>
+            )}
+          </div>
+        </section>
+
+        <section aria-label="Simulasi kegagalan" className={`${panel} p-4`}>
+          <h2 className="text-[18px] font-extrabold">Simulasi kegagalan</h2>
+          <p className="mb-3 text-[14px] text-[var(--ink-muted)]">Panggilan tetap jalan lewat jalur cadangan.</p>
+          <fieldset disabled={!connected || !demo || state === "SELESAI"} className="space-y-2 disabled:opacity-50">
+            <legend className="sr-only">Paksa kegagalan</legend>
+            {([["llm", "L1", "LLM gagal", "Tombol generik"], ["stt", "L2", "STT gagal", "Frasa siap pakai"], ["tts", "L3", "TTS gagal", "Audio cache"]] as const).map(([key, lv, label, effect]) => (
+              <label key={key} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-[12px] border-[3px] px-3 ${forces[key] ? "border-sos bg-sos/8" : "border-[var(--rule)]"}`}>
+                <input type="checkbox" className="size-5 accent-[var(--sos)]" checked={forces[key]} onChange={(e) => { const next = { ...forces, [key]: e.target.checked }; if (send({ type: "force_degradation", data: next })) setForces(next); }} />
+                <span className="rounded-[6px] bg-ink px-1.5 font-mono text-[13px] font-bold text-paint">{lv}</span>
+                <span className="flex flex-col leading-5"><span className="text-[16px] font-bold">{label}</span><span className="text-[13px] text-[var(--ink-muted)]">{effect}</span></span>
+              </label>
+            ))}
+          </fieldset>
+          <label className="mt-3 flex min-h-12 items-center gap-3 text-[15px]">
+            <input type="checkbox" className="size-5 accent-[var(--ink)]" checked={mulaw} disabled={answered || answering} onChange={(e) => setMulaw(e.target.checked)} />
+            <span>Simulasi kodek telepon 8 kHz <span className="text-[13px] text-[var(--ink-muted)]">(dikunci setelah Angkat)</span></span>
+          </label>
+          <div className="mt-2">
+            <p className="text-[14px] font-bold">Level mikrofon <span className="font-normal text-[var(--ink-muted)]">· {muted ? "dijeda" : micOn ? "merekam" : "mati"}</span></p>
+            <div className="mt-1 h-3 overflow-hidden rounded-full bg-[var(--rule)]" role="meter" aria-label="Level mikrofon" aria-valuemin={0} aria-valuemax={1} aria-valuenow={level}>
+              <div className="h-full rounded-full bg-ink transition-[width] duration-100" style={{ width: `${Math.min(100, level * 100)}%` }} />
+            </div>
+          </div>
+        </section>
+
+        <section aria-label="SMS simulasi" className={`${panel} p-4`}>
+          <h2 className="text-[18px] font-extrabold">SMS ke kontak darurat</h2>
+          <div aria-live="polite" className="mt-2 space-y-2">
+            {!sms.length && <p className="text-[14px] text-[var(--ink-muted)]">Belum ada. Muncul saat panggilan gagal (L4).</p>}
+            {sms.map((m, i) => (
+              <article key={i} className="rounded-[12px] bg-[var(--paper)] p-3">
+                <p className="font-mono text-[13px] font-bold">{m.to}</p>
+                <p className="text-[15px] leading-5">{m.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
       </aside>
-    </div>
-  </main>;
+    </main>
+  </>;
 }

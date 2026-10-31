@@ -1,34 +1,43 @@
-/* The console keeps its own light palette; the user app's night-asphalt world stops here. */
-body:has(.console-shell) { background: #f1f5f9; color-scheme: light; }
-.console-shell {
-  --color-sos: #b91c1c; --color-primary: #0f766e; --color-navy: #1e293b; --color-text: #0f172a;
-  --color-text-muted: #475569; --color-surface: #ffffff; --color-bg: #f1f5f9; --color-warning: #b45309;
-  --color-warning-bg: #fef3c7; --color-focus: #2563eb; --color-accent: #0f766e; --incident-fire: #c2410c;
-  --shadow-card: 0 4px 16px rgb(15 23 42 / 0.12);
-  color: var(--color-text);
+/*
+ * Console: the Trayek Angkot world in its paper register (lit room, projector).
+ * Same incident paints, SOS red and signal yellow as the phone; ground and text flip to paper and ink.
+ */
+body:has(.console-shell) {
+  background: #f4f1ea;
+  color-scheme: light;
 }
-.console-shell { max-width: 1440px; margin: auto; padding: 24px; font-size: 16px; }
-.console-shell h1 { font-size: 26px; font-weight: 700; margin-bottom: 16px; }
-.console-shell h2 { font-size: 19px; font-weight: 700; margin-bottom: 12px; }
-.console-shell h3 { font-weight: 700; margin-top: 16px; }
-.console-shell p { margin-bottom: 12px; }
-.console-shell button, .console-button { display: inline-block; min-height: 48px; padding: 10px 16px; border: 1px solid var(--color-text-muted); border-radius: 12px; cursor: pointer; background: var(--color-surface); color: var(--color-text); text-align: center; }
-.console-shell button:disabled { opacity: .5; cursor: not-allowed; }
-.console-shell .primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.console-shell .danger { background: var(--color-sos); color: white; border-color: var(--color-sos); }
-.console-shell input:not([type=checkbox]), .console-shell textarea { width: 100%; padding: 12px; border: 1px solid var(--color-text-muted); border-radius: 8px; background: var(--color-surface); }
-.console-shell label { display: block; margin: 12px 0; }
-.console-shell input[type=checkbox] { width: 20px; height: 20px; vertical-align: middle; margin-right: 8px; }
-.console-panel { padding: 20px; background: var(--color-surface); border-radius: 16px; box-shadow: var(--shadow-card); min-width: 0; }
-.console-grid { display: grid; grid-template-columns: minmax(230px,320px) minmax(0,1fr) minmax(230px,320px); gap: 16px; }
-.console-stack { display: grid; gap: 12px; }
-.console-warning { background: var(--color-warning-bg); color: var(--color-warning); padding: 12px; border-radius: 8px; }
-.console-log { display: flex; flex-direction: column; gap: 12px; height: 48vh; overflow: auto; padding: 4px; overflow-wrap: anywhere; }
-.console-bubble { align-self: flex-start; max-width: 90%; padding: 12px; border: 2px solid var(--color-navy); border-radius: 12px; }
-.console-bubble.operator { align-self: flex-end; border-color: var(--incident-fire); }
-.console-meta { color: var(--color-text-muted); font-size: 14px; }
-.console-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--color-bg); margin: 2px; font-size: 13px; }
-.console-shell meter { display: block; width: 100%; height: 24px; }
-.console-card { border: 1px solid var(--color-text-muted); border-radius: 12px; padding: 12px; margin-top: 16px; overflow-wrap: anywhere; }
-@media (max-width: 1100px) { .console-shell { padding: 16px; } .console-grid { grid-template-columns: 230px minmax(0,1fr) 230px; gap: 12px; } .console-panel { padding: 14px; } }
-@media (max-width: 850px) { .console-grid { grid-template-columns: 1fr; } }
+.console-shell {
+  --paper: #f4f1ea;
+  --panel: #ffffff;
+  --rule: #e2ded3;
+  --ink: #15171b;
+  --ink-muted: #5d5a52; /* 6.6:1 on paper */
+  --done-paper: #1f9d55; /* white text 3.4:1, used at 20px+ bold only */
+  --amber-paper: #b7791f;
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 24px;
+}
+.console-shell :focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--signal);
+}
+.console-shell ::selection {
+  background: var(--signal);
+  color: var(--ink);
+}
+.console-shell input,
+.console-shell textarea {
+  caret-color: var(--ink);
+}
+.console-shell textarea::placeholder,
+.console-shell input::placeholder {
+  color: var(--ink-muted);
+}
+.console-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #c9c4b8 transparent;
+}
