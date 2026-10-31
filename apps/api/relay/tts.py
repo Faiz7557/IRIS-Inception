@@ -1,15 +1,19 @@
-"""Google speech synthesis with a fixed-phrase offline fallback."""
+"""Speech synthesis: ElevenLabs (if keyed), then Google, then the fixed-phrase cache."""
 
 import base64
 import json
+import logging
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Literal
 
+import httpx
 from google.cloud import texttospeech
 from google.oauth2 import service_account
 
 from config import PHRASES, env
+
+log = logging.getLogger(__name__)
 
 
 class TTSUnavailable(RuntimeError):
@@ -24,9 +28,13 @@ def _mulaw_encode(sample: int) -> int:
     return (~(sign | (exponent << 4) | mantissa)) & 0xFF
 
 
+ELEVENLABS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice}/stream"
+
+
 class TTS:
-    def __init__(self, *, client=None):
+    def __init__(self, *, client=None, http=None):
         self._client = client
+        self._http = http
         self._cache: dict[str, bytes] = {}
         self.force_fail = False
         self.last_first_chunk_at: datetime | None = None
@@ -53,8 +61,50 @@ class TTS:
     def cached(self, phrase_key: str) -> bytes | None:
         return self._cache.get(phrase_key)
 
+    def _google_enabled(self) -> bool:
+        # With ElevenLabs keyed, Google is only a fallback when it has explicit credentials.
+        return (self._client is not None or bool(env("GOOGLE_APPLICATION_CREDENTIALS_JSON"))
+                or not env("ELEVENLABS_API_KEY"))
+
+    async def _elevenlabs(self, text: str) -> AsyncIterator[bytes]:
+        """Streams raw PCM16 24 kHz mono, the same format as the Google path."""
+        voice = env("ELEVENLABS_VOICE_ID")
+        if not voice:
+            raise TTSUnavailable("ELEVENLABS_VOICE_ID not set")
+        if self._http is None:
+            self._http = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=3.0))
+        async with self._http.stream(
+            "POST",
+            ELEVENLABS_URL.format(voice=voice),
+            params={"output_format": "pcm_24000"},
+            headers={"xi-api-key": env("ELEVENLABS_API_KEY")},
+            json={"text": text, "model_id": env("ELEVENLABS_MODEL", "eleven_flash_v2_5"),
+                  "language_code": "id"},
+        ) as response:
+            response.raise_for_status()
+            odd = b""  # keep chunks sample-aligned (2 bytes) for the PCM player
+            async for chunk in response.aiter_bytes():
+                chunk = odd + chunk
+                cut = len(chunk) - len(chunk) % 2
+                odd = chunk[cut:]
+                if cut:
+                    yield chunk[:cut]
+
     async def _pcm(self, text: str) -> AsyncIterator[bytes]:
-        if not self.force_fail:
+        if not self.force_fail and env("ELEVENLABS_API_KEY"):
+            received = False
+            try:
+                async for chunk in self._elevenlabs(text):
+                    received = True
+                    yield chunk
+            except Exception as e:
+                log.warning("tts: elevenlabs failed: %s: %s", type(e).__name__, e)
+                if received:  # mid-stream failure: don't replay the start in another voice
+                    raise TTSUnavailable("ElevenLabs stream interrupted") from None
+            if received:
+                return
+
+        if not self.force_fail and self._google_enabled():
             try:
                 async def requests():
                     yield texttospeech.StreamingSynthesizeRequest(

@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
     install_log_redaction()  # again, in case uvicorn reconfigured logging after import
     await db.init_pool()
     try:
-        if not auth.fake_providers():  # fake mode: no Google calls at boot
+        if not auth.fake_providers() or auth.real_tts():  # fake mode: no TTS calls at boot
             from relay.tts import tts
             await tts.startup()
     except Exception as e:

@@ -5,6 +5,7 @@ import json
 import struct
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from google.cloud import texttospeech
 
@@ -37,6 +38,13 @@ class FakeClient:
         if self.fallback_error:
             raise RuntimeError("fallback unavailable")
         return SimpleNamespace(audio_content=b"H" * 44 + self.fallback_pcm)
+
+
+@pytest.fixture(autouse=True)
+def _no_elevenlabs(monkeypatch):
+    """Keep Google-path tests hermetic even if ElevenLabs is set in the shell."""
+    for name in ("ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID", "ELEVENLABS_MODEL"):
+        monkeypatch.delenv(name, raising=False)
 
 
 async def collect(tts, text="Halo.", fmt="pcm24k"):
@@ -169,3 +177,65 @@ def test_credentials(monkeypatch, encoded):
     tts = TTS()
     assert asyncio.run(collect(tts)) == list(client.chunks)
     assert seen == {"credentials": credentials if encoded else None}
+
+
+def eleven_http(chunks=(b"\x01\x02",), status=200, seen=None):
+    async def stream():
+        for chunk in chunks:
+            yield chunk
+
+    def handler(request):
+        if seen is not None:
+            seen.append(request)
+        return httpx.Response(status, content=stream())
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.fixture
+def eleven_env(monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID", "voice123")
+    monkeypatch.delenv("ELEVENLABS_MODEL", raising=False)
+
+
+def test_elevenlabs_primary(eleven_env):
+    seen = []
+    client = FakeClient()
+    tts = TTS(client=client, http=eleven_http(chunks=(b"\x01", b"\x02\x03", b"\x04"), seen=seen))
+    assert b"".join(asyncio.run(collect(tts))) == b"\x01\x02\x03\x04"
+    request = seen[0]
+    assert request.url.path == "/v1/text-to-speech/voice123/stream"
+    assert request.url.params["output_format"] == "pcm_24000"
+    assert request.headers["xi-api-key"] == "test-key"
+    body = json.loads(request.content)
+    assert body == {"text": "Halo.", "model_id": "eleven_flash_v2_5", "language_code": "id"}
+    assert not client.requests and not client.fallback_calls
+
+
+def test_elevenlabs_chunks_stay_sample_aligned(eleven_env):
+    tts = TTS(client=FakeClient(), http=eleven_http(chunks=(b"\x01", b"\x02\x03", b"\x04\x05\x06")))
+    assert all(len(c) % 2 == 0 for c in asyncio.run(collect(tts)))
+
+
+def test_elevenlabs_error_falls_back_to_google(eleven_env):
+    client = FakeClient()
+    tts = TTS(client=client, http=eleven_http(status=401))
+    assert asyncio.run(collect(tts)) == list(client.chunks)
+
+
+def test_elevenlabs_skips_google_without_credentials(eleven_env, monkeypatch):
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS_JSON", raising=False)
+    tts = TTS(http=eleven_http(status=500))
+    with pytest.raises(TTSUnavailable):
+        asyncio.run(collect(tts, "No cached arbitrary text"))
+    assert tts._client is None  # Google never constructed
+
+
+def test_elevenlabs_force_fail_uses_cache_only(eleven_env):
+    seen = []
+    tts = TTS(client=FakeClient(), http=eleven_http(seen=seen))
+    tts._cache[PHRASES["P_YES"]] = b"cached"
+    tts.force_fail = True
+    assert asyncio.run(collect(tts, PHRASES["P_YES"])) == [b"cached"]
+    assert not seen

@@ -58,7 +58,8 @@ flowchart LR
   DB[(Supabase Postgres + Auth)]
   DG[Deepgram Nova-3 id]
   CL[Claude Haiku 5.5]
-  GT[Google TTS Chirp3-HD id-ID]
+  EL[ElevenLabs Flash v2.5]
+  GT[Google TTS Chirp3-HD id-ID, cadangan]
   KD[Halaman kontak darurat /k/token]
 
   UI <-- WSS JSON --> ORK
@@ -67,6 +68,7 @@ flowchart LR
   ORK <--> RELAY
   STT <--> DG
   LLM <--> CL
+  TTS <--> EL
   TTS <--> GT
   ORK --> DB
   FB --> KD
@@ -98,7 +100,7 @@ AI hanya dipakai di tiga titik. Orkestrator, pesan pembuka, pengambilan lokasi, 
 
 1. **STT (Deepgram Nova-3):** mengubah ucapan operator menjadi teks secara streaming.
 2. **Penyederhana (Claude Haiku 5.5):** mengubah transkrip menjadi 1 sampai 3 kartu JSON dengan skema ketat. Output divalidasi, dan model tidak diizinkan menjawab atas nama pengguna. Jawaban selalu berasal dari ketukan pengguna.
-3. **TTS (Google Cloud TTS, Chirp3-HD id-ID):** membacakan jawaban pengguna ke operator secara streaming.
+3. **TTS (ElevenLabs `eleven_flash_v2_5`, PCM 24 kHz):** membacakan jawaban pengguna ke operator secara streaming. Google Cloud TTS (Chirp3-HD id-ID) menjadi cadangan bila kredensialnya diset, lalu cache frasa.
 
 Jalur cadangan (03_TRD §7, ringkas):
 
@@ -113,7 +115,7 @@ Jalur cadangan (03_TRD §7, ringkas):
 
 ## Hasil evaluasi
 
-Evaluasi dengan penyedia live (Deepgram, Anthropic, Google TTS) **belum dijalankan**. Semua angka di bawah ini belum diukur. Skrip ada di `eval/run_eval.py`, dan laporan akan dibuat oleh `eval/report.py` ke [`eval/REPORT.md`](eval/REPORT.md).
+Evaluasi dengan penyedia live (Deepgram, Anthropic, ElevenLabs) **belum dijalankan**. Semua angka di bawah ini belum diukur. Skrip ada di `eval/run_eval.py`, dan laporan akan dibuat oleh `eval/report.py` ke [`eval/REPORT.md`](eval/REPORT.md).
 
 | Metrik (Tabel VIII paper) | Target | Hasil |
 |---|---|---|
@@ -144,7 +146,7 @@ Proporsi dilaporkan dengan interval Wilson 95%. Kasus gagal akan dicantumkan di 
 - **STT pada saluran telepon nyata** kemungkinan lebih buruk daripada hasil uji bersih. Belum diukur.
 - **Pengguna masih perlu membaca kalimat pendek.** Target 5 kata atau kurang belum tervalidasi.
 - **Koreksi terhadap paper (K1 sampai K4):**
-  - K1: Google Neural2 tidak tersedia untuk id-ID. Dipakai Chirp3-HD, dengan Wavenet sebagai cadangan non-streaming.
+  - K1: Google Neural2 tidak tersedia untuk id-ID. TTS utama diganti ElevenLabs Flash v2.5 (latensi potongan pertama sekitar 0,2 dtk saat koneksi hangat); Google Chirp3-HD dan Wavenet tetap sebagai cadangan.
   - K2: `temperature` tidak dikirim, karena Haiku 5.5 menolaknya. Konsistensi dijaga dengan structured output dan cache.
   - K3: Vibration API tidak didukung di iOS. Getar hanya di Android, dan iOS memakai kedipan layar.
   - K4: Supabase phone OTP tetap butuh provider SMS. MVP memakai nomor uji.
@@ -158,7 +160,8 @@ Proporsi dilaporkan dengan interval Wilson 95%. Kasus gagal akan dicantumkan di 
 |---|---|---|
 | Anthropic Claude Haiku 5.5 | Penyederhana pertanyaan | API berbayar |
 | Deepgram Nova-3 | STT | API berbayar |
-| Google Cloud Text-to-Speech | TTS | API berbayar |
+| ElevenLabs | TTS utama | API berbayar |
+| Google Cloud Text-to-Speech | TTS cadangan | API berbayar |
 | Supabase | DB, Auth | Layanan terkelola |
 | OpenStreetMap Nominatim | Geokode balik | ODbL; 1 permintaan per detik |
 | Tabler Icons | Ikon | MIT |

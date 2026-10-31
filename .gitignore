@@ -14,3 +14,7 @@ __pycache__/
 # Evaluation artifacts
 eval/audio/
 eval/results_*.csv
+
+# Supabase CLI local state
+supabase/.branches/
+supabase/.temp/
