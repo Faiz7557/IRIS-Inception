@@ -8,7 +8,12 @@ export function IncidentTile({
     <button
       type="button"
       aria-pressed={selected}
-      onClick={onToggle}
+      onClick={(e) => {
+        onToggle();
+        // Mouse/touch pick (detail > 0): drop focus so the next Space goes to SOS instead of un-picking this tile.
+        // Keyboard users (Tab + Space, detail 0) keep focus here.
+        if (e.detail > 0) e.currentTarget.blur();
+      }}
       style={{ background: `var(${colorVar})` }}
       className={`relative flex min-h-[112px] min-w-[148px] flex-col items-center justify-center gap-2 rounded-[16px] text-white ${
         selected ? "ring-4 ring-inset ring-white" : ""
