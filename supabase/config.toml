@@ -1,0 +1,12 @@
+project_id = "jembatan-112"
+
+[auth.sms]
+enable_signup = true
+[auth.sms.twilio]
+enabled = true
+account_sid = "placeholder"
+message_service_sid = "placeholder"
+auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+[auth.sms.test_otp]
+6281200000001 = "112112"
+6281200000002 = "112112"

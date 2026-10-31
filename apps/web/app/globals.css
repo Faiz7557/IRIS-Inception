@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+:root {
+  --color-sos: #b91c1c;
+  --color-sos-pressed: #7f1d1d;
+  --color-primary: #0f766e;
+  --color-primary-strong: #115e59;
+  --color-navy: #1e293b;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-surface: #ffffff;
+  --color-bg: #f1f5f9;
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3c7;
+  --color-success: #15803d;
+  --color-focus: #2563eb;
+  --color-accent: #0f766e; /* teal for text/icons; lighter in dark mode */
+  --incident-fire: #c2410c;
+  --incident-crash: #a16207;
+  --incident-medical: #0f766e;
+  --incident-crime: #1e3a8a;
+  --incident-dv: #6d28d9;
+  --incident-disaster: #475569;
+  --shadow-card: 0 4px 16px rgb(15 23 42 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0b1220;
+    --color-surface: #111827;
+    --color-text: #f8fafc;
+    --color-text-muted: #94a3b8;
+    --color-navy: #f8fafc;
+    --color-accent: #2dd4bf;
+    --color-warning-bg: #422006;
+  }
+}
+
+/* Silent mode: force dark regardless of OS setting (Design Brief 5.1). */
+.silent {
+  --color-bg: #0b1220;
+  --color-surface: #111827;
+  --color-text: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-navy: #f8fafc;
+  --color-accent: #2dd4bf;
+  --color-warning-bg: #422006;
+  color-scheme: dark;
+}
+/* 40% black overlay helper: put class "silent-dim" on an empty element. */
+.silent-dim {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Tokens are plain :root variables (so dark/silent overrides apply); @theme inline exposes them as utilities. */
+@theme inline {
+  --color-sos: var(--color-sos);
+  --color-sos-pressed: var(--color-sos-pressed);
+  --color-primary: var(--color-primary);
+  --color-primary-strong: var(--color-primary-strong);
+  --color-navy: var(--color-navy);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-surface: var(--color-surface);
+  --color-bg: var(--color-bg);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-success: var(--color-success);
+  --color-focus: var(--color-focus);
+  --color-accent: var(--color-accent);
+  --color-incident-fire: var(--incident-fire);
+  --color-incident-crash: var(--incident-crash);
+  --color-incident-medical: var(--incident-medical);
+  --color-incident-crime: var(--incident-crime);
+  --color-incident-dv: var(--incident-dv);
+  --color-incident-disaster: var(--incident-disaster);
+  --radius-card: 16px;
+  --radius-btn: 12px;
+  --shadow-card: var(--shadow-card);
+}
+
+html {
+  font-size: 18px;
+}
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 28px; /* 18/28 */
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 100ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 100ms !important;
+    scroll-behavior: auto !important;
+  }
+}
