@@ -5,7 +5,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import json
-from time import monotonic
+from time import monotonic, time
 from typing import Awaitable, Callable, Literal
 from urllib.parse import urlencode
 
@@ -33,10 +33,11 @@ class DeepgramStream:
         *,
         keepalive_interval: float = 4.0,
         partial_interval: float = 0.25,
+        watchdog_timeout: float = 10.0,
     ):
         if codec not in ("pcm16_16k", "mulaw_8k"):
             raise ValueError("Unsupported audio codec")
-        if keepalive_interval <= 0 or partial_interval < 0:
+        if keepalive_interval <= 0 or partial_interval < 0 or watchdog_timeout < 0:
             raise ValueError("Invalid STT intervals")
         self.codec = codec
         self.on_final, self.on_partial, self.on_error = on_final, on_partial, on_error
@@ -45,6 +46,7 @@ class DeepgramStream:
         self._ws = None
         self._receiver = None
         self._keeper = None
+        self._watchdog = None
         self._closed = False
         self._muted = False
         self._reconnected = False
@@ -53,9 +55,10 @@ class DeepgramStream:
         self._last_word_end: float | None = None
         self._last_partial = float("-inf")
         self._stream_start = datetime.now(UTC)
-        # ponytail: no 10 s no-results watchdog yet (needs mic RMS from orchestrator); STT loss is only
-        # detected via socket errors. Add when live Deepgram shows silent stalls.
-
+        self._watchdog_timeout = watchdog_timeout
+        self._last_result_at = time()
+        self._audio_sent = False
+        self._pending_error: Exception | None = None
     async def _connect(self) -> None:
         key = env("DEEPGRAM_API_KEY")
         if not key:
@@ -74,6 +77,7 @@ class DeepgramStream:
             additional_headers={"Authorization": f"Token {key}"},
         )
         self._stream_start = datetime.now(UTC)
+        self._last_result_at = time()
         self._clear_buffer()
 
     async def start(self) -> None:
@@ -89,7 +93,8 @@ class DeepgramStream:
             return
         self._receiver = asyncio.create_task(self._receive())
         self._keeper = asyncio.create_task(self._keepalive())
-
+        if self._watchdog_timeout > 0:
+            self._watchdog = asyncio.create_task(self._watchdog_loop())
     async def _recover(self, error: Exception) -> bool:
         if self._closed:
             return False
@@ -115,7 +120,9 @@ class DeepgramStream:
                     await self._parse(json.loads(raw))
                 raise ConnectionError("Deepgram stream closed unexpectedly")
             except (OSError, WebSocketException, TimeoutError) as exc:
-                if not await self._recover(exc):
+                err = self._pending_error or exc
+                self._pending_error = None
+                if not await self._recover(err):
                     return
             except (ValueError, KeyError, TypeError) as exc:
                 self._closed = True
@@ -123,6 +130,8 @@ class DeepgramStream:
                 return
 
     async def _parse(self, message: dict) -> None:
+        self._last_result_at = time()
+        self._audio_sent = False
         kind = message.get("type")
         if kind == "UtteranceEnd":
             await self._finalize()
@@ -166,14 +175,15 @@ class DeepgramStream:
 
     async def send_audio(self, frame: bytes) -> None:
         if not self._closed and not self._muted and self._ws is not None:
+            self._audio_sent = True
             try:
                 await self._ws.send(frame)
             except (OSError, ConnectionClosed):
                 await self._ws.close()  # Receiver owns the single reconnect attempt.
-
     def mute(self, muted: bool) -> None:
         self._muted = muted
-
+        if muted:
+            self._audio_sent = False
     async def _keepalive(self) -> None:
         while not self._closed:
             await asyncio.sleep(self._keepalive_interval)
@@ -183,10 +193,24 @@ class DeepgramStream:
                 except (OSError, ConnectionClosed):
                     await self._ws.close()
 
+    async def _watchdog_loop(self) -> None:
+        step = min(1.0, max(0.01, self._watchdog_timeout / 4))
+        while not self._closed:
+            await asyncio.sleep(step)
+            if self._closed:
+                break
+            if self._audio_sent and self._watchdog_timeout > 0:
+                if time() - self._last_result_at >= self._watchdog_timeout:
+                    self._audio_sent = False
+                    self._pending_error = TimeoutError("STT watchdog: no results for 10s")
+                    if self._ws is not None:
+                        with suppress(OSError, ConnectionClosed):
+                            await self._ws.close()
+
     async def close(self) -> None:
         self._closed = True
         current = asyncio.current_task()
-        for task in (self._receiver, self._keeper):
+        for task in (self._receiver, self._keeper, self._watchdog):
             if task is not None and task is not current:
                 task.cancel()
                 with suppress(asyncio.CancelledError):

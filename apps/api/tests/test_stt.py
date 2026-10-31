@@ -223,3 +223,21 @@ async def test_open_failure_retries_once(setup_stream, monkeypatch):
     assert len(attempts) == 2
     assert len(errors) == 1
     await stream.close()
+
+
+async def test_watchdog_triggers_on_silent_stall(setup_stream):
+    make, sockets, connects, _, _, errors = setup_stream
+    stream = make(watchdog_timeout=0.05)
+    await stream.start()
+    try:
+        assert len(sockets) == 1
+        await stream.send_audio(b"audio-frame-1")
+        await eventually(lambda: len(sockets) == 2)
+        assert len(connects) == 2
+        await stream.send_audio(b"audio-frame-2")
+        await eventually(lambda: bool(errors))
+        assert len(errors) == 1
+        assert isinstance(errors[0], TimeoutError)
+        assert "watchdog" in str(errors[0])
+    finally:
+        await stream.close()
