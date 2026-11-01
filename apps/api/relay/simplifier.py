@@ -336,7 +336,7 @@ async def simplify(transcript: str, incident: str, history: list[dict], force_fa
     try:
         resp = await asyncio.wait_for(
             _get_client().messages.create(
-                model=env("LLM_MODEL", "ag/gemini-3.8-flash-low" if (env("LLM_BASE_URL") or env("OPENAI_BASE_URL")) else "claude-haiku-5-5"),
+                model=env("LLM_MODEL", "ag/gemini-3.8-flash-low"),
                 max_tokens=400,
                 system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": payload}],
