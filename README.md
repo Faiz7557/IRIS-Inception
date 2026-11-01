@@ -345,6 +345,24 @@ Bila ada perubahan pada `apps/web/`:
 - **Backend:** Gunakan `fly secrets set KUNCI=NILAI -a jembatan-112-api`. Fly.io akan memperbarui container secara rolling update.
 - **Frontend:** Atur di dashboard Vercel (Project Settings > Environment Variables) untuk `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - **CORS:** Jika domain frontend berganti, pastikan secret `CORS_ORIGINS` di Fly.io diperbarui sesuai domain Vercel.
+### Otomasi CI/CD (GitHub Actions)
+
+Repositori dilengkapi pipeline otomatis di `.github/workflows/`:
+
+1. **CI (`ci.yaml`):** Berjalan pada setiap Pull Request dan Push ke `main`. Memvalidasi:
+   - Unit test backend (Python 3.12, `uv sync --frozen`, `pytest`).
+   - Kualitas frontend (`tsc --noEmit`, ESLint, dan `next build`).
+   - Integritas build Dockerfile backend.
+2. **Deploy (`deploy.yaml`):** Berjalan otomatis setelah workflow `CI` sukses di branch `main`.
+
+#### Menghubungkan Secrets untuk Auto-Deploy:
+Tambahkan secret berikut di GitHub (`Settings > Secrets and variables > Actions`):
+
+- **Backend (Fly.io):**
+  - `FLY_API_TOKEN`: Buat token melalui terminal lokal dengan perintah `fly auth token`.
+- **Frontend (Vercel):**
+  - *Opsi 1 (Vercel Git Integration - Direkomendasikan):* Hubungkan repo `Faiz7557/IRIS-Inception` di Vercel Dashboard (Project Settings > Git). Vercel otomatis men-deploy preview pada PR dan production pada push ke `main`.
+  - *Opsi 2 (GitHub Actions):* Tambahkan secret `VERCEL_TOKEN` (dibuat dari Vercel Account Settings > Tokens). Workflow sudah mengonfigurasi default `VERCEL_ORG_ID` (`team_f3VKLewxSLoovEO7y50OprvQ`) dan `VERCEL_PROJECT_ID` (`prj_PCY7d0kdyE9Dng2MZEbKPG3UdrwC`).
 ## Pengujian otomatis
 
 ```bash
