@@ -1,16 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Gabarito } from "next/font/google";
+import { Atkinson_Hyperlegible, Gabarito, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import RegisterSW from "@/components/RegisterSW";
 import { LARGE_KEY, THEME_KEY } from "@/lib/theme";
 
-// Gabarito for the big Sill headings; Atkinson Hyperlegible Next (brand font, built for low-vision legibility)
-// for body, buttons and answers. Mono stays for clocks and codes.
-const sans = Atkinson_Hyperlegible_Next({
+// Gabarito for the big Sill headings; Atkinson Hyperlegible (built for low-vision legibility)
+// for body, buttons and answers. JetBrains Mono for clocks and codes.
+const sans = Atkinson_Hyperlegible({
   subsets: ["latin"],
-  weight: ["400", "600", "700", "800"],
+  weight: ["400", "700"],
   display: "swap",
-  fallback: ["system-ui"],
+  fallback: ["system-ui", "sans-serif"],
   variable: "--font-sans",
 });
 const display = Gabarito({
@@ -20,7 +20,7 @@ const display = Gabarito({
   fallback: ["Arial Black", "system-ui"],
   variable: "--font-display",
 });
-const mono = Atkinson_Hyperlegible_Mono({
+const mono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["700"],
   display: "swap",
