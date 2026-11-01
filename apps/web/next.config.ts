@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const api = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -18,8 +19,17 @@ const csp = [
 ].join("; ");
 
 const config: NextConfig = {
+  outputFileTracingRoot: path.join(__dirname, "../../"),
+  poweredByHeader: false,
   async headers() {
     return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
       {
         source: "/:path*",
         headers: [
