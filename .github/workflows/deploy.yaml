@@ -7,6 +7,9 @@ on:
     types: [completed]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
@@ -16,11 +19,16 @@ jobs:
     name: Deploy Backend to Fly.io
     runs-on: ubuntu-latest
     if: >-
-      (github.event_name == 'workflow_dispatch' ||
-       github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Setup Flyctl
         if: env.FLY_API_TOKEN != ''
@@ -42,11 +50,16 @@ jobs:
     name: Deploy Frontend to Vercel
     runs-on: ubuntu-latest
     if: >-
-      (github.event_name == 'workflow_dispatch' ||
-       github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Set up Node.js 22
         if: env.VERCEL_TOKEN != ''
@@ -57,7 +70,7 @@ jobs:
       - name: Deploy to Vercel Production
         if: env.VERCEL_TOKEN != ''
         working-directory: apps/web
-        run: npx vercel --prod --token="${{ secrets.VERCEL_TOKEN }}" --yes
+        run: npx --yes vercel --prod --token="${{ secrets.VERCEL_TOKEN }}" --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID || 'team_f3VKLewxSLoovEO7y50OprvQ' }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID || 'prj_PCY7d0kdyE9Dng2MZEbKPG3UdrwC' }}
