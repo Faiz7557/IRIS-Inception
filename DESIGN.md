@@ -108,3 +108,5 @@ The user screens now follow the Sill panels in `app/globals.css` (light default,
 - New classes: `.m-chip`, `.m-icon-btn`, `.m-row`, `.m-switch`, `.s-dock`, `.m-press`.
 - Resilience: profile reads fall back to the IndexedDB copy after 4 s; profile saves write locally first. `/kartu` and `/latihan` work without a session.
 - PWA shortcuts: Kebakaran, Sakit, Kecelakaan (`/?kejadian=…` preselects the plate) and Kartu darurat.
+- `/mulai`: three onboarding steps, each with a miniature of the real screen, then a ready screen (prototype notice, FAQ) ending in "Coba latihan dulu" or "Masuk dengan nomor ponsel". The landing-page CSS is gone.
+- Console: one-click operator questions per incident above the input, "Tutup panggilan" needs a second click within 4 s, the queue shows how long each call has waited (red from 20 s), and the phone preview uses the Sill look of the user app.
