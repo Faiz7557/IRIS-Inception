@@ -223,13 +223,13 @@ Salin template environment di root:
 cp .env.example .env
 ```
 Lengkapi variabel lingkungan:
-- `ANTHROPIC_API_KEY`: Kunci API Claude 3.5 Haiku.
-- `DEEPGRAM_API_KEY`: Kunci API Deepgram Nova-3 id.
-- `ELEVENLABS_API_KEY`: Kunci API ElevenLabs Flash v2.5 (TTS utama; jika kosong, sistem otomatis memakai Google Cloud TTS).
-- `GOOGLE_APPLICATION_CREDENTIALS_JSON`: Kredensial base64 Google Cloud Service Account (TTS cadangan atau utama bila ElevenLabs tidak diset).
-- `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`: Kredensial database Supabase.
-- `PROFILE_ENC_KEY_V1`, `WS_TICKET_SECRET`, `CONSOLE_PASSCODE`, `CONSOLE_JWT_SECRET`.
-
+- **LLM Relay (Penyederhana Pertanyaan 112):**
+  - *Opsi 1 (9router / OpenAI-compatible / Gemini Flash):* `LLM_BASE_URL`, `LLM_API_KEY`, dan `LLM_MODEL` (misal: `ag/gemini-3.8-flash-low`).
+  - *Opsi 2 (Anthropic resmi):* `ANTHROPIC_API_KEY` (Claude 3.5 Haiku).
+- **Speech-to-Text (STT):** `DEEPGRAM_API_KEY` (Deepgram Nova-3 id untuk streaming suara operator ke teks real-time).
+- **Text-to-Speech (TTS):** `ELEVENLABS_API_KEY` (TTS utama Flash v2.5; fallback otomatis ke Google Cloud TTS bila diset `GOOGLE_APPLICATION_CREDENTIALS_JSON`).
+- **Database & Auth (Supabase):** `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+- **Kriptografi & Auth Internal:** `PROFILE_ENC_KEY_V1`, `WS_TICKET_SECRET`, `CONSOLE_PASSCODE`, `CONSOLE_JWT_SECRET`.
 #### 2. Migrasi Database Supabase
 ```bash
 supabase db push
