@@ -59,11 +59,26 @@ export default function Verifikasi() {
       <PageHead title="Masukkan kode" lead={`Kode 6 digit dikirim ke ${phone}.`} back="/masuk" tone="violet" />
       <div className="s-page">
         <div className="s-panel m-surface space-y-4" style={{ "--i": 1 } as React.CSSProperties}>
-          <input
-            value={code} onChange={(e) => onChange(e.target.value)} onPaste={(e) => { e.preventDefault(); onChange(e.clipboardData.getData("text")); }}
-            inputMode="numeric" autoComplete="one-time-code" maxLength={6} aria-label="Kode 6 digit" disabled={busy}
-            className="m-field !min-h-16 text-center font-mono !text-[32px] tracking-[0.5em]"
-          />
+          {/* Six boxes drawn over one real input: SMS autofill, paste and screen readers keep working. */}
+          <div className="relative grid grid-cols-6 gap-2">
+            {Array.from({ length: 6 }, (_, i) => (
+              <span
+                key={i}
+                aria-hidden
+                className={`flex h-16 items-center justify-center font-mono text-[30px] font-bold ${
+                  i === code.length && !busy ? "shadow-[inset_0_0_0_4px_var(--color-focus)]" : "shadow-[inset_0_0_0_2px_currentColor]"
+                } ${code[i] ? "" : "opacity-60"}`}
+              >
+                {code[i] ?? ""}
+              </span>
+            ))}
+            <input
+              value={code} onChange={(e) => onChange(e.target.value)} onPaste={(e) => { e.preventDefault(); onChange(e.clipboardData.getData("text")); }}
+              inputMode="numeric" autoComplete="one-time-code" maxLength={6} aria-label="Kode 6 digit" disabled={busy} autoFocus
+              className="absolute inset-0 h-full w-full cursor-text opacity-0"
+            />
+          </div>
+          {busy && <p role="status" className="text-text-muted">Memeriksa kode…</p>}
           {err && <p role="alert" className="font-semibold text-[var(--color-sos)]">{err}</p>}
           <button onClick={resend} disabled={wait > 0} className="m-btn m-btn--line w-full">
             {wait > 0 ? `Kirim ulang kode (${wait} dtk)` : "Kirim ulang kode"}

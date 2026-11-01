@@ -86,6 +86,10 @@ export default function PanggilanPage() {
   const sock = useRef<CallSocket | null>(null);
   const cardRef = useRef<HTMLElement>(null);
   const answered = useRef(0);
+  // Question + answer pairs for the summary page; an answer is logged only once the operator heard it.
+  const log = useRef<{ q: string; a: string }[]>([]);
+  const pendingAns = useRef<{ q: string; a: string } | null>(null);
+  const dispatchedRef = useRef(false);
   const cardIdRef = useRef<string | null>(null);
 
   // Session written by the home page right after POST /v1/calls.
@@ -101,7 +105,10 @@ export default function PanggilanPage() {
   const end = useCallback(
     (d: EndedData) => {
       try {
-        sessionStorage.setItem(`j112.end.${id}`, JSON.stringify({ ...d, answered: answered.current, practice: sess?.practice }));
+        sessionStorage.setItem(`j112.end.${id}`, JSON.stringify({
+          ...d, answered: answered.current, practice: sess?.practice, incident: sess?.incident,
+          dispatched: dispatchedRef.current, log: log.current,
+        }));
       } catch {
         /* summary page copes without it */
       }
@@ -153,8 +160,11 @@ export default function PanggilanPage() {
           setAns("sent");
           answered.current += 1;
           setAnsweredN(answered.current);
+          if (pendingAns.current) log.current.push(pendingAns.current);
+          pendingAns.current = null;
           vibrate(50);
         } else {
+          pendingAns.current = null;
           setChosen(null);
           setAns("idle");
           setAnsErr("Gagal dibacakan. Coba lagi.");
@@ -163,6 +173,7 @@ export default function PanggilanPage() {
       s.on("degradation", (m) => setDeg(m.data.level)),
       s.on("dispatch", (m) => {
         setDispatched(true);
+        dispatchedRef.current = true;
         setTl((x) => ({ ...x, dispatched_at: m.data.dispatched_at }));
       }),
       s.on("timeline", (m) => setTl(m.data)),
@@ -225,16 +236,19 @@ export default function PanggilanPage() {
       if (!f) return setAnsErr("Lokasi belum tersedia. Pilih jawaban lain.");
       setChosen(o.index);
       setAns("sending");
+      pendingAns.current = { q: card.question, a: `Lokasi GPS (akurat ${f.accuracy_m} m)` };
       return sock.current?.send("gps", { card_id: card.card_id, option_index: o.index, lat: f.lat, lng: f.lng, accuracy_m: f.accuracy_m });
     }
     setChosen(o.index);
     setAns("sending");
+    pendingAns.current = { q: card.question, a: o.label };
     sock.current?.send("tap", { card_id: card.card_id, option_index: o.index });
   };
   const sendText = (text: string) => {
     if (!card || !sheet) return;
     setChosen(sheet.index);
     setAns("sending");
+    pendingAns.current = { q: card.question, a: text };
     setSheet(null);
     sock.current?.send("text", { card_id: card.card_id, option_index: sheet.index, text });
   };

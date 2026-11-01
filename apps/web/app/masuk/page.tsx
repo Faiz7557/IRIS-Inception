@@ -11,6 +11,12 @@ function normalizePhone(raw: string): string {
   return s;
 }
 
+/** "081234567890" -> "0812 3456 7890" while typing, so a wrong digit is easy to spot. */
+function groupPhone(raw: string): string {
+  const d = raw.replace(/[^\d+]/g, "").slice(0, 16);
+  return d.startsWith("+") ? d : d.replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
 export default function Masuk() {
   const r = useRouter();
   const [v, setV] = useState("");
@@ -38,7 +44,7 @@ export default function Masuk() {
           <label className="block">
             <span className="m-label">Nomor ponsel</span>
             <input
-              type="tel" inputMode="tel" autoComplete="tel-national" value={v} onChange={(e) => setV(e.target.value)}
+              type="tel" inputMode="tel" autoComplete="tel-national" value={v} onChange={(e) => setV(groupPhone(e.target.value))}
               placeholder="0812 3456 7890" aria-describedby="e"
               className="m-field"
             />

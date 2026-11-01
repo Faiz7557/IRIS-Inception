@@ -1,5 +1,7 @@
-const CACHE = "j112-shell-v1";
-const SHELL = ["/", "/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-512.png"];
+const CACHE = "j112-shell-v2";
+// Pages that must open without internet: home, SMS fallback, officer card, practice.
+const PAGES = ["/", "/offline", "/kartu", "/latihan"];
+const SHELL = [...PAGES, "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => Promise.all(SHELL.map((u) => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
@@ -17,11 +19,22 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET" || url.protocol.startsWith("ws") || url.pathname.startsWith("/v1/") || url.pathname.startsWith("/ws/")) return;
   if (url.origin !== location.origin) return;
   if (req.mode === "navigate") {
+    // Network first; keep a fresh copy of the offline pages; offline, serve that page or fall back to /offline.
+    // ponytail: a page's JS chunks are cached only once it has been opened online (cache-first below);
+    // precache the build manifest if a never-visited page must work offline.
     e.respondWith(
-      fetch(req).catch(async () => {
-        const c = await caches.open(CACHE);
-        return (await c.match("/offline")) || Response.error();
-      }),
+      fetch(req)
+        .then((res) => {
+          if (res.ok && PAGES.includes(url.pathname)) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(url.pathname, copy));
+          }
+          return res;
+        })
+        .catch(async () => {
+          const c = await caches.open(CACHE);
+          return (await c.match(url.pathname)) || (await c.match("/offline")) || Response.error();
+        }),
     );
     return;
   }

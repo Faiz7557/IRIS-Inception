@@ -610,8 +610,8 @@ html.large-text body:not(:has(.console-shell)) {
 @media (prefers-reduced-motion: no-preference) {
   .s-panel,
   .s-open {
-    animation: s-open 0.4s cubic-bezier(0.16, 0.84, 0.24, 1) backwards;
-    animation-delay: calc(min(var(--i, 0), 6) * 40ms);
+    animation: s-open 0.18s ease-out backwards;
+    animation-delay: calc(min(var(--i, 0), 3) * 30ms);
   }
   /* Emergency surfaces appear at once: no entrance on the home grid and the call screen. */
   .s-instant .s-panel,
@@ -620,8 +620,8 @@ html.large-text body:not(:has(.console-shell)) {
   }
   .s-title .w > span,
   .s-rise > span {
-    animation: s-rise 0.7s cubic-bezier(0.16, 0.84, 0.24, 1) backwards;
-    animation-delay: calc(80ms + var(--d, 0) * 45ms);
+    animation: s-rise 0.35s cubic-bezier(0.16, 0.84, 0.24, 1) backwards;
+    animation-delay: calc(min(var(--d, 0), 4) * 30ms);
   }
 }
 .s-title .w,
@@ -635,12 +635,11 @@ html.large-text body:not(:has(.console-shell)) {
 .s-rise > span {
   display: inline-block;
 }
+/* A short fade and lift: content is readable within 0.3 s even on a slow phone (was a 0.5 s corner wipe). */
 @keyframes s-open {
   from {
-    clip-path: inset(0 100% 100% 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 @keyframes s-rise {
