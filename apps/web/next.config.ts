@@ -16,6 +16,8 @@ const csp = [
   "font-src 'self'",
   "media-src 'self' blob:",
   "worker-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
 ].join("; ");
 
 const config: NextConfig = {
@@ -36,7 +38,10 @@ const config: NextConfig = {
           { key: "Content-Security-Policy", value: csp },
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "Permissions-Policy", value: "geolocation=(self), microphone=(self)" },
-          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
         ],
       },
     ];

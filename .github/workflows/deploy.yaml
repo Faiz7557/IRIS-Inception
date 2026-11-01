@@ -70,7 +70,7 @@ jobs:
       - name: Deploy to Vercel Production
         if: env.VERCEL_TOKEN != ''
         working-directory: apps/web
-        run: npx --yes vercel --prod --token="${{ secrets.VERCEL_TOKEN }}" --yes
+        run: npx --yes vercel@53 --prod --token="${{ secrets.VERCEL_TOKEN }}" --scope="team_f3VKLewxSLoovEO7y50OprvQ" --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID || 'team_f3VKLewxSLoovEO7y50OprvQ' }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID || 'prj_PCY7d0kdyE9Dng2MZEbKPG3UdrwC' }}
