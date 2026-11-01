@@ -27,6 +27,9 @@ Docs live in `../docs/` (relative to this repo root). Repo root = `jembatan-112/
     - Verifikasi fitur bila perlu agar sesuai keinginan user dan kesesuaian dengan task.
     - Lakukan atomic commits per penyelesaian modul/fitur yang teruji.
 
+13. Keamanan Git & Passphrase:
+    - Agent DILARANG meminta, mengakses, atau mengeksekusi perintah git yang membutuhkan passphrase/kredensial privat (seperti `git push`, atau operasi SSH jaringan yang membutuhkan passphrase).
+    - Setiap perintah git yang memerlukan interaksi passphrase/kredensial WAJIB didelegasikan ke user untuk dieksekusi secara mandiri di terminal user.
 ## Layout and ownership
 
 | Path | Owner task |
