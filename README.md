@@ -265,11 +265,13 @@ Buka di browser:
    ```
 
 2. Isi variabel berikut:
-   - `ANTHROPIC_API_KEY`: Claude Haiku 5.5.
-   - `DEEPGRAM_API_KEY`: Deepgram Nova-3.
-   - `ELEVENLABS_API_KEY`: TTS utama. Bila kosong, sistem otomatis memakai Google Cloud TTS.
-   - `GOOGLE_APPLICATION_CREDENTIALS_JSON`: kredensial base64 Google Cloud Service Account.
-   - `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`.
+   - **LLM Relay (Penyederhana Pertanyaan 112):**
+     - *Opsi 1 (9router / OpenAI-compatible / Gemini Flash):* `LLM_BASE_URL`, `LLM_API_KEY`, dan `LLM_MODEL` (misal: `ag/gemini-3.8-flash-low`).
+     - *Opsi 2 (Anthropic resmi):* `ANTHROPIC_API_KEY` (Claude Haiku 5.5).
+   - **Speech-to-Text (STT):** `DEEPGRAM_API_KEY` (Deepgram Nova-3 id untuk streaming suara operator ke teks real-time).
+   - **Text-to-Speech (TTS):** `ELEVENLABS_API_KEY` (TTS utama Flash v2.5; bila kosong, sistem otomatis memakai Google Cloud TTS).
+   - `GOOGLE_APPLICATION_CREDENTIALS_JSON`: kredensial base64 Google Cloud Service Account (cadangan).
+   - `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`.
    - `PROFILE_ENC_KEY_V1`, `WS_TICKET_SECRET`, `CONSOLE_PASSCODE`, `CONSOLE_JWT_SECRET`.
 
 3. Jalankan migrasi database:

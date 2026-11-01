@@ -2,17 +2,17 @@
 
 import os
 
+def env(name: str, default: str | None = None) -> str | None:
+    return os.environ.get(name, default)
+
+
 RING_TIMEOUT_S = 30
 MAX_ATTEMPTS = 3
 MAX_TOTAL_ATTEMPTS = 6
 WAIT_TICK_S = 8
-LLM_TIMEOUT_S = 1.5
+LLM_TIMEOUT_S = float(env("LLM_TIMEOUT_S") or 6.0)
 HALF_DUPLEX_TAIL_S = 0.3
 USER_LINK_LOST_S = 15
-
-
-def env(name: str, default: str | None = None) -> str | None:
-    return os.environ.get(name, default)
 
 
 INCIDENTS: dict[str, dict] = {
