@@ -151,7 +151,7 @@ class OpenAIMessagesAdapter:
             "response_format": {"type": "json_object"},
         }
         if self._http is None or self._http.is_closed:
-            self._http = httpx.AsyncClient(timeout=float(env("LLM_TIMEOUT_S") or 4.0))
+            self._http = httpx.AsyncClient(timeout=float(env("LLM_TIMEOUT_S") or 6.0))
         resp = await self._http.post(url, headers=headers, json=body)
         resp.raise_for_status()
         data = resp.json()
