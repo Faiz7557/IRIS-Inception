@@ -23,3 +23,7 @@ supabase/.temp/
 # Impeccable design tool: keep briefs, ignore scratch
 .impeccable/*
 !.impeccable/surfaces/
+
+# Graphify & analysis artifacts
+graphify-out/
+.codegraph/

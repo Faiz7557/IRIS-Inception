@@ -13,7 +13,7 @@ Docs live in `../docs/` (relative to this repo root). Repo root = `jembatan-112/
 6. TypeScript strict. Next.js 15 App Router, React 19, Tailwind 4. No extra UI libraries.
 7. Leave ONE runnable check behind for non-trivial logic (a pytest file or a tiny self-check). No test frameworks beyond pytest/vitest.
 8. Do NOT git push. Do NOT run deploys. Do NOT call real paid APIs except where your task says so.
-9. If a Claude Code "Fact-Forcing Gate" hook blocks a file write, state the facts it asks for in one line and retry the same call.
+9. If a "Fact-Forcing Gate" hook blocks a file write, state the facts it asks for in one line and retry the same call.
 10. Finish with a report of at most 15 lines: files written, checks run + result, open TODOs. No file dumps.
 11. Pull Request (PR): judul & pesan PR wajib singkat dengan gaya simplified technical Indonesia yang low-level (faktual, padat, tanpa filler). Struktur:
     - Ringkasan: 1-2 baris problem & solusi.

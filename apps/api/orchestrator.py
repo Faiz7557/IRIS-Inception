@@ -31,7 +31,7 @@ log = logging.getLogger("jembatan112.orchestrator")
 router = APIRouter()
 
 DEPS: dict[str, object] = {}  # module name -> fake (tests); empty = real modules
-if config.env("J112_FAKE_PROVIDERS") == "1":  # dev/smoke: no Deepgram/Anthropic/Google/Nominatim
+if config.env("J112_FAKE_PROVIDERS") == "1":  # dev/smoke: no Deepgram/LLM/Google/Nominatim
     import fakes
     DEPS.update(fakes.DEPS)
 

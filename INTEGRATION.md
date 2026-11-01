@@ -15,7 +15,7 @@ API (from `apps/api`, Python 3.12+ venv, `pip install -r requirements.txt`):
 ```
 uvicorn main:app --port 8000
 ```
-Needs `WS_TICKET_SECRET`, `CONSOLE_PASSCODE`, `CONSOLE_JWT_SECRET`, `PROFILE_ENC_KEY_V1`, `SUPABASE_URL` (+ `SUPABASE_JWT_SECRET` for HS256), `DATABASE_URL`, provider keys (`ANTHROPIC_API_KEY`, `DEEPGRAM_API_KEY`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`), `PUBLIC_WS_URL`, `PUBLIC_WEB_URL`, `CORS_ORIGINS`.
+Needs `WS_TICKET_SECRET`, `CONSOLE_PASSCODE`, `CONSOLE_JWT_SECRET`, `PROFILE_ENC_KEY_V1`, `SUPABASE_URL` (+ `SUPABASE_JWT_SECRET` for HS256), `DATABASE_URL`, provider keys (`LLM_API_KEY`, `DEEPGRAM_API_KEY`, `ELEVENLABS_API_KEY` / `GOOGLE_APPLICATION_CREDENTIALS_JSON`), `PUBLIC_WS_URL`, `PUBLIC_WEB_URL`, `CORS_ORIGINS`.
 Web (from `apps/web`): `npm install && npm run dev` with `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 `J112_ENV` = `dev` | `test` | `prod` (unset = `prod`). `J112_FAKE_PROVIDERS` and `J112_DEV_USER` are ignored outside dev/test, and the API refuses to start (RuntimeError) if either is set while `J112_ENV` is prod; when active it logs a loud warning.
@@ -32,4 +32,4 @@ python tests/smoke_e2e.py      # one full call: answer, opener, card, tap, audio
 pytest 163 passed; `tsc --noEmit`, `next lint`, `next build` clean; smoke_e2e PASS in fake mode.
 
 ## Not verified
-Live Deepgram, Anthropic, Google TTS, Nominatim, Supabase (auth JWT/JWKS, DB writes, RLS), Web Push; real browsers (mic worklet, audio playback, service worker, iOS SMS links, wake lock); multi-process deploys (sessions, tickets and hubs are in-memory per process).
+Live Deepgram, Gemini Flash/9router, Google TTS, Nominatim, Supabase (auth JWT/JWKS, DB writes, RLS), Web Push; real browsers (mic worklet, audio playback, service worker, iOS SMS links, wake lock); multi-process deploys (sessions, tickets and hubs are in-memory per process).

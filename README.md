@@ -109,7 +109,7 @@ flowchart LR
   end
   DB[(Supabase Postgres + Auth)]
   DG[Deepgram Nova-3 id]
-  CL[Claude Haiku 5.5]
+  GM[Gemini 3.8 Flash]
   EL[ElevenLabs Flash v2.5]
   GT[Google TTS Chirp3-HD id-ID, cadangan]
   KD[Halaman kontak darurat /k/token]
@@ -119,7 +119,7 @@ flowchart LR
   TTS -- WSS biner PCM --> SPK
   ORK <--> RELAY
   STT <--> DG
-  LLM <--> CL
+  LLM <--> GM
   TTS <--> EL
   TTS <--> GT
   ORK --> DB
@@ -151,7 +151,7 @@ Keputusan arsitektur utama:
 | Keputusan | Alasan |
 |---|---|
 | PWA, bukan aplikasi native | Juri bisa menguji lewat URL tanpa toko aplikasi |
-| FastAPI + WebSocket dalam satu proses asyncio | WebSocket butuh proses panjang. SDK Python untuk Anthropic dan Google sudah matang |
+| FastAPI + WebSocket dalam satu proses asyncio | WebSocket butuh proses panjang. SDK Python dan API AI klien asinkron sudah matang |
 | LLM + skema JSON ketat | Tidak butuh data latih dan tahan terhadap ujaran tak baku |
 | Keluaran LLM dibungkus `{"kartu": [...]}` | Pertanyaan majemuk bisa dipecah dalam satu panggilan, jadi hemat latensi |
 | Setengah-dupleks (STT diabaikan saat TTS bicara + 300 ms) | Suara sintetis tidak ikut ditranskripsi |
@@ -162,7 +162,7 @@ Keputusan arsitektur utama:
 AI hanya dipakai di tiga titik. Orkestrator, pesan pembuka, pengambilan lokasi, percobaan ulang, notifikasi, dan templat kartu bersifat deterministik.
 
 1. **STT (Deepgram Nova-3, `language=id`, streaming):** mengubah ucapan operator menjadi teks. Deepgram juga mendeteksi akhir ujaran (`endpointing=400`, `utterance_end_ms=1000`, VAD). Lihat [`apps/api/relay/stt.py`](apps/api/relay/stt.py).
-2. **Penyederhana (Claude Haiku 5.5):** mengubah transkrip menjadi 1 sampai 3 kartu JSON dengan skema ketat. Output divalidasi, dan model tidak boleh menjawab atas nama pengguna. **Jawaban selalu berasal dari ketukan pengguna.**
+2. **Penyederhana (Gemini 3.8 Flash via 9router):** mengubah transkrip menjadi 1 sampai 3 kartu JSON dengan skema ketat. Output divalidasi, dan model tidak boleh menjawab atas nama pengguna. **Jawaban selalu berasal dari ketukan pengguna.**
 3. **TTS (ElevenLabs `eleven_flash_v2_5`, PCM 24 kHz):** membacakan pesan pembuka dan jawaban pengguna ke operator secara streaming. Google Cloud TTS (Chirp3-HD `id-ID`) menjadi cadangan bila kredensialnya diset. Lapisan terakhir adalah cache frasa.
 
 Jalur cadangan:
@@ -185,7 +185,7 @@ Jalur cadangan:
 | Audio konsol | Web Audio API (`getUserMedia`, `AudioWorklet`, `AudioContext`) tanpa pustaka tambahan |
 | Backend | Python 3.12, FastAPI, Uvicorn, Pydantic v2, `asyncpg` |
 | Database & Auth | Supabase (Postgres, phone OTP, RLS, `pg_cron`) |
-| AI | Deepgram Nova-3 (STT), Anthropic Claude Haiku 5.5 (LLM), ElevenLabs Flash v2.5 dan Google Cloud TTS (TTS) |
+| AI | Deepgram Nova-3 (STT), Gemini 3.8 Flash (LLM via 9router), ElevenLabs Flash v2.5 dan Google Cloud TTS (TTS) |
 | Keamanan | `cryptography` (AES-GCM), `PyJWT` (JWKS), HMAC-SHA256 |
 | Notifikasi | `pywebpush` (VAPID) |
 | Geokode balik | OpenStreetMap Nominatim |
@@ -266,9 +266,7 @@ Buka di browser:
    ```
 
 2. Isi variabel berikut:
-   - **LLM Relay (Penyederhana Pertanyaan 112):**
-     - *Opsi 1 (9router / OpenAI-compatible / Gemini Flash):* `LLM_BASE_URL`, `LLM_API_KEY`, dan `LLM_MODEL` (misal: `ag/gemini-3.8-flash-low`).
-     - *Opsi 2 (Anthropic resmi):* `ANTHROPIC_API_KEY` (Claude Haiku 5.5).
+   - **LLM Relay (Penyederhana Pertanyaan 112):** `LLM_BASE_URL`, `LLM_API_KEY`, dan `LLM_MODEL` (Gemini 3.8 Flash via 9router, misal: `ag/gemini-3.8-flash-low`).
    - **Speech-to-Text (STT):** `DEEPGRAM_API_KEY` (Deepgram Nova-3 id untuk streaming suara operator ke teks real-time).
    - **Text-to-Speech (TTS):** `ELEVENLABS_API_KEY` (TTS utama Flash v2.5; bila kosong, sistem otomatis memakai Google Cloud TTS).
    - `GOOGLE_APPLICATION_CREDENTIALS_JSON`: kredensial base64 Google Cloud Service Account (cadangan).
@@ -345,6 +343,24 @@ Bila ada perubahan pada `apps/web/`:
 - **Backend:** Gunakan `fly secrets set KUNCI=NILAI -a jembatan-112-api`. Fly.io akan memperbarui container secara rolling update.
 - **Frontend:** Atur di dashboard Vercel (Project Settings > Environment Variables) untuk `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - **CORS:** Jika domain frontend berganti, pastikan secret `CORS_ORIGINS` di Fly.io diperbarui sesuai domain Vercel.
+### Otomasi CI/CD (GitHub Actions)
+
+Repositori dilengkapi pipeline otomatis di `.github/workflows/`:
+
+1. **CI (`ci.yaml`):** Berjalan pada setiap Pull Request dan Push ke `main`. Memvalidasi:
+   - Unit test backend (Python 3.12, `uv sync --frozen`, `pytest`).
+   - Kualitas frontend (`tsc --noEmit`, ESLint, dan `next build`).
+   - Integritas build Dockerfile backend.
+2. **Deploy (`deploy.yaml`):** Berjalan otomatis setelah workflow `CI` sukses di branch `main`.
+
+#### Menghubungkan Secrets untuk Auto-Deploy:
+Tambahkan secret berikut di GitHub (`Settings > Secrets and variables > Actions`):
+
+- **Backend (Fly.io):**
+  - `FLY_API_TOKEN`: Buat token melalui terminal lokal dengan perintah `fly auth token`.
+- **Frontend (Vercel):**
+  - *Opsi 1 (Vercel Git Integration - Direkomendasikan):* Hubungkan repo `Faiz7557/IRIS-Inception` di Vercel Dashboard (Project Settings > Git). Vercel otomatis men-deploy preview pada PR dan production pada push ke `main`.
+  - *Opsi 2 (GitHub Actions):* Tambahkan secret `VERCEL_TOKEN` (dibuat dari Vercel Account Settings > Tokens). Workflow sudah mengonfigurasi default `VERCEL_ORG_ID` (`team_f3VKLewxSLoovEO7y50OprvQ`) dan `VERCEL_PROJECT_ID` (`prj_PCY7d0kdyE9Dng2MZEbKPG3UdrwC`).
 ## Pengujian otomatis
 
 ```bash
@@ -356,7 +372,7 @@ Unit test backend mencakup state machine, relay STT/LLM/TTS, jalur cadangan L1â€
 
 ## Hasil evaluasi
 
-Evaluasi dengan penyedia live (Deepgram, Anthropic, ElevenLabs) **belum dijalankan**, jadi semua angka di bawah belum diukur. Skrip evaluasi ada di `eval/run_eval.py`, dan laporannya akan dibuat oleh `eval/report.py` ke `eval/REPORT.md`.
+Evaluasi dengan penyedia live (Deepgram, Gemini Flash, ElevenLabs) **belum dijalankan**, jadi semua angka di bawah belum diukur. Skrip evaluasi ada di `eval/run_eval.py`, dan laporannya akan dibuat oleh `eval/report.py` ke `eval/REPORT.md`.
 
 | Metrik | Target | Hasil |
 |---|---|---|
@@ -388,10 +404,10 @@ Proporsi akan dilaporkan dengan interval Wilson 95%.
 - **Pengguna masih perlu membaca kalimat pendek.** Target 5 kata atau kurang per kartu belum tervalidasi.
 - **Setengah-dupleks.** Operator belum bisa menyela (barge-in) saat sistem berbicara.
 - **Sesi dan tiket disimpan di memori.** Ini hanya aman untuk satu instance API.
-- **Belum diuji** dengan penyedia live (Deepgram, Anthropic, ElevenLabs, Google TTS, Nominatim, Supabase, Web Push) dan di browser nyata (mikrofon `AudioWorklet`, pemutaran audio, service worker, tautan SMS iOS, wake lock).
+- **Belum diuji** dengan penyedia live (Deepgram, Gemini Flash, ElevenLabs, Google TTS, Nominatim, Supabase, Web Push) dan di browser nyata (mikrofon `AudioWorklet`, pemutaran audio, service worker, tautan SMS iOS, wake lock).
 - **Koreksi terhadap paper konsep (K1 sampai K4):**
   - K1: Google Neural2 tidak tersedia untuk `id-ID`. TTS utama diganti ElevenLabs Flash v2.5, sedangkan Google Chirp3-HD dan Wavenet menjadi cadangan.
-  - K2: parameter `temperature` tidak dikirim karena Haiku 5.5 menolaknya. Konsistensi dijaga dengan structured output dan cache.
+  - K2: parameter `temperature` diset 0 untuk menjaga konsistensi jawaban deterministik terstruktur.
   - K3: Vibration API tidak didukung di iOS. Getar hanya di Android, sedangkan iOS memakai kedipan layar.
   - K4: Supabase phone OTP tetap butuh provider SMS. MVP memakai nomor uji.
 
@@ -402,7 +418,7 @@ Proporsi akan dilaporkan dengan interval Wilson 95%.
 | Layanan AI | Fungsi di produk | Data yang dikirim | Lisensi/ketentuan |
 |---|---|---|---|
 | Deepgram Nova-3 | STT: ucapan operator menjadi teks | Audio suara operator (streaming, tidak direkam) | API berbayar |
-| Anthropic Claude Haiku 5.5 | Mengubah pertanyaan operator menjadi kartu bertombol | Jenis kejadian, transkrip operator, label tombol 2 putaran terakhir. **Tanpa data pribadi** | API berbayar |
+| Gemini 3.8 Flash | Mengubah pertanyaan operator menjadi kartu bertombol | Jenis kejadian, transkrip operator, label tombol 2 putaran terakhir. **Tanpa data pribadi** | API berbayar |
 | ElevenLabs Flash v2.5 | TTS utama: membacakan pesan dan jawaban ke operator | Teks pesan dan jawaban | API berbayar |
 | Google Cloud Text-to-Speech (Chirp3-HD) | TTS cadangan | Teks pesan dan jawaban | API berbayar |
 
@@ -412,8 +428,7 @@ Setiap keluaran AI dibatasi skema dan divalidasi, serta punya jalur cadangan det
 
 | Alat | Pemakaian |
 |---|---|
-| Claude Code (Claude Opus 5.5, Sonnet, Haiku) | Membantu menulis, menguji, dan meninjau kode serta dokumen di bawah arahan tim |
-| Codex CLI (GPT-6.1) | Membantu menulis dan meninjau kode serta dokumen di bawah arahan tim |
+| AI Coding Assistants | Membantu menulis, menguji, dan meninjau kode serta dokumen di bawah arahan tim |
 
 Seluruh kode dan dokumen ditinjau, diuji, dan dimiliki oleh tim. Keputusan desain, arsitektur, dan riset ditentukan oleh tim.
 
