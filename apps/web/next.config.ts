@@ -19,7 +19,7 @@ const csp = [
 ].join("; ");
 
 const config: NextConfig = {
-  outputFileTracingRoot: path.join(__dirname, "../../"),
+  ...(process.env.VERCEL ? {} : { outputFileTracingRoot: path.join(__dirname, "../../") }),
   poweredByHeader: false,
   async headers() {
     return [
