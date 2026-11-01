@@ -36,32 +36,24 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
       ref={ref}
       tabIndex={-1}
       aria-labelledby={titleId}
-      className={`card-in space-y-4 rounded-[14px] p-4 shadow-[var(--shadow-card)] outline-none ${
-        instr ? "bg-signal text-ink" : "bg-asphalt-2"
-      }`}
+      className={`card-in space-y-4 px-[18px] py-5 outline-none ${instr ? "tone-mustard" : "m-surface"}`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        {silentDot && <span className="h-3 w-3 rounded-full bg-signal" aria-label="Kartu baru" role="img" />}
-        {CHIPS[card.degradation] && (
-          <span className="rounded-[6px] bg-warning-bg px-2.5 text-[15px] font-bold text-signal">
-            {CHIPS[card.degradation]}
-          </span>
-        )}
+        {silentDot && <span className={`h-3 w-3 rounded-full ${instr ? "bg-ink" : "bg-sill-mustard"}`} aria-label="Kartu baru" role="img" />}
+        {CHIPS[card.degradation] && <span className="s-tag">{CHIPS[card.degradation]}</span>}
       </div>
 
-      {instr && (
-        <p className="text-[15px] leading-5 font-extrabold tracking-[0.06em]">ARAHAN OPERATOR</p>
-      )}
+      {instr && <p className="m-label">Arahan operator</p>}
 
       <h2
         id={titleId}
         aria-live="assertive"
-        className={`font-extrabold tracking-[-0.015em] text-balance ${l1 ? "text-[24px] leading-8" : "text-[34px] leading-10"}`}
+        className={`s-display font-black tracking-[-0.03em] text-balance ${l1 ? "text-[26px] leading-8" : "text-[38px] leading-[40px]"}`}
       >
         {l1 ? card.transcript || card.question : card.question}
       </h2>
 
-      <div role="group" aria-labelledby={titleId} className={grid ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
+      <div role="group" aria-labelledby={titleId} className={grid ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"}>
         {card.options.map((o) => {
           const mine = chosen === o.index;
           const dont = /tidak tahu/i.test(o.label);
@@ -73,14 +65,14 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
               type="button"
               aria-disabled={locked || undefined}
               onClick={() => !locked && onOption(o)}
-              className={`flex min-h-[68px] items-center justify-center gap-2 rounded-[12px] px-4 text-[21px] font-extrabold transition-[background-color,opacity,transform] duration-150 ease-out active:scale-[0.98] ${
+              className={`s-display flex min-h-[72px] items-center justify-center gap-2 px-4 text-[24px] font-black tracking-[-0.02em] transition-[background-color,opacity] duration-150 ease-out ${
                 mine && status === "sent"
-                  ? "bg-done text-ink"
+                  ? "bg-sill-sage text-ink"
                   : dont
-                    ? `border-[3px] bg-transparent ${instr ? "border-ink/70 text-ink" : "border-paint/60 text-paint"}`
+                    ? "bg-transparent shadow-[inset_0_0_0_2px_currentColor]"
                     : instr
-                      ? "bg-ink text-signal"
-                      : "bg-paint text-ink"
+                      ? "bg-ink text-sill-mustard"
+                      : "bg-primary text-on-primary"
               } ${dim ? "opacity-35" : ""}`}
             >
               {o.action === "kirim_gps" && <GpsIcon size={24} />}
@@ -101,12 +93,12 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
             type="button"
             aria-expanded={open}
             onClick={() => setOpen(!open)}
-            className={`min-h-12 text-[16px] font-bold underline underline-offset-4 ${instr ? "text-ink" : "text-paint-muted"}`}
+            className={`min-h-12 text-[16px] font-semibold underline underline-offset-4 ${instr ? "" : "text-text-muted"}`}
           >
             {open ? "Tutup kata operator" : "Lihat kata operator"}
           </button>
           {open && (
-            <p className={`rounded-[12px] p-3 text-[16px] leading-6 ${instr ? "bg-ink/10" : "bg-asphalt text-paint-muted"}`}>
+            <p className={`p-3 text-[16px] leading-6 ${instr ? "bg-ink/10" : "bg-bg text-text-muted"}`}>
               {card.transcript}
             </p>
           )}
@@ -118,18 +110,18 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
           type="button"
           aria-disabled={locked || undefined}
           onClick={() => !locked && onRepeat()}
-          className={`min-h-14 rounded-[12px] px-3 text-[18px] font-bold ${instr ? "text-ink" : "text-signal"}`}
+          className="m-btn m-btn--sm m-btn--line"
         >
           {t("call.repeat")}
         </button>
         {card.total > 1 && (
-          <span className={`text-[16px] font-bold ${instr ? "text-ink/75" : "text-paint-muted"}`}>
+          <span className={`text-[16px] font-semibold ${instr ? "text-ink/75" : "text-text-muted"}`}>
             Kartu {Math.min(idx, card.total)} dari {card.total}
           </span>
         )}
       </div>
       {pendingAfter > 0 && (
-        <p className={`text-[16px] font-bold ${instr ? "text-ink/75" : "text-paint-muted"}`}>{pendingAfter} pertanyaan lagi menunggu</p>
+        <p className={`text-[16px] font-semibold ${instr ? "text-ink/75" : "text-text-muted"}`}>{pendingAfter} pertanyaan lagi menunggu</p>
       )}
     </section>
   );

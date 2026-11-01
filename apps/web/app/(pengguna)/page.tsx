@@ -11,6 +11,7 @@ import type { CreateCall, Incident } from "@/lib/protocol";
 import { IncidentTile } from "@/components/IncidentTile";
 import { SosHoldButton } from "@/components/SosHoldButton";
 import { GpsIcon } from "@/components/icons";
+import { Words } from "@/components/PageHead";
 
 interface CallCreated {
   call_id: string;
@@ -150,20 +151,10 @@ export default function BerandaPage() {
   }, [busy, fix, incident, practice, router]);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-5 pt-4 pb-6">
-      <div className="flex min-h-12 items-center justify-between">
-        {practice ? (
-          <Link
-            href="/pengaturan"
-            className="rounded-[6px] bg-signal px-2.5 py-0.5 text-[14px] leading-6 font-extrabold tracking-[0.06em] text-ink"
-            aria-label={`${t("practice.banner")}. Ubah di pengaturan.`}
-          >
-            LATIHAN
-          </Link>
-        ) : (
-          <span />
-        )}
-        <Link href="/pengaturan" aria-label="Pengaturan" className="flex min-h-12 min-w-12 items-center justify-end font-bold text-paint/85">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col gap-2 px-2 pb-2">
+      <div className="s-bar">
+        <span className="s-word">J112</span>
+        <Link href="/pengaturan" aria-label="Pengaturan" className="m-btn m-btn--sm">
           Atur
         </Link>
       </div>
@@ -183,12 +174,13 @@ export default function BerandaPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5">
-        {INCIDENTS.map((i) => (
+      <div className="grid grid-cols-2 gap-2">
+        {INCIDENTS.map((i, n) => (
           <IncidentTile
             key={i.id}
             id={i.id}
             label={i.label}
+            order={n + 1}
             selected={incident === i.id}
             dimmed={incident !== null && incident !== i.id}
             onToggle={() => setIncident(incident === i.id ? null : i.id)}
@@ -200,7 +192,8 @@ export default function BerandaPage() {
         <Link
           href="/profil?baru=1"
           aria-live="polite"
-          className="mt-4 flex min-h-14 items-center gap-3 rounded-[12px] bg-sos px-4 text-[18px] leading-6 font-bold text-white"
+          style={{ "--i": 7 } as React.CSSProperties}
+          className="s-panel m-surface flex items-center gap-3 !py-4 text-[18px] leading-6 font-bold text-[color:var(--color-sos)] shadow-[inset_0_0_0_2px_var(--color-sos)]"
         >
           <GpsIcon size={24} />
           {t("home.location.missing")}
@@ -208,12 +201,10 @@ export default function BerandaPage() {
       ) : (
         <p
           aria-live="polite"
-          className="mt-4 flex min-h-14 items-center gap-3 rounded-[12px] bg-asphalt-2 px-4 text-[17px] leading-6 font-bold"
+          style={{ "--i": 7 } as React.CSSProperties}
+          className={`s-panel m-surface flex items-center gap-3 !py-4 text-[17px] leading-6 font-semibold ${error && !address ? "text-[color:var(--color-sos)]" : ""}`}
         >
-          <span
-            aria-hidden
-            className={`size-3 shrink-0 rounded-full ${fix ? "bg-done" : error ? "bg-paint-muted" : "animate-pulse bg-signal"}`}
-          />
+          <GpsIcon size={24} />
           <span className="min-w-0 truncate">
             {fix ? t("home.location.ok", { m: fix.accuracy_m }) : address ? address : error ? t("home.location.none") : "Mencari lokasi…"}
           </span>

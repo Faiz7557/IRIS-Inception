@@ -6,7 +6,7 @@ export const INCIDENTS: { id: Exclude<Incident, "umum">; label: string; colorVar
   { id: "kecelakaan", label: "Kecelakaan", colorVar: "--incident-crash", ink: "dark", icon: "car-crash" },
   { id: "sakit", label: "Sakit", colorVar: "--incident-medical", ink: "dark", icon: "heartbeat" },
   { id: "kejahatan", label: "Kejahatan", colorVar: "--incident-crime", ink: "light", icon: "user-exclamation" },
-  { id: "kdrt", label: "KDRT", colorVar: "--incident-dv", ink: "light", icon: "home-exclamation" },
+  { id: "kdrt", label: "KDRT", colorVar: "--incident-dv", ink: "dark", icon: "home-exclamation" },
   { id: "bencana", label: "Bencana", colorVar: "--incident-disaster", ink: "dark", icon: "ripple" },
 ];
 

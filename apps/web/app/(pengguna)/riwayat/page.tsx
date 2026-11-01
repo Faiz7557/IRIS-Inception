@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { INCIDENTS } from "@/lib/incidents";
+import { PageHead } from "@/components/PageHead";
 
 interface CallRow {
   id: string;
@@ -22,17 +23,20 @@ export default function Riwayat() {
       .catch(() => setErr("Gagal memuat riwayat."));
   }, []);
   return (
-    <main className="mx-auto max-w-md space-y-3 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Riwayat</h1>
-      <p role="alert" className="text-[var(--color-sos)]">
-        {err}
-      </p>
-      {rows?.length === 0 && <p className="text-[var(--color-text-muted)]">Belum ada panggilan.</p>}
-      {rows?.map((c) => {
+    <main className="text-[var(--color-text)]">
+      <PageHead title="Riwayat" back="/pengaturan" tone="taupe" />
+      <div className="s-page">
+      {err && (
+        <p role="alert" className="s-panel m-surface font-semibold text-[var(--color-sos)]">
+          {err}
+        </p>
+      )}
+      {rows?.length === 0 && <p className="s-panel m-surface text-[var(--color-text-muted)]">Belum ada panggilan.</p>}
+      {rows?.map((c, n) => {
         const when = c.created_at ?? c.started_at ?? c.sos_confirmed_at;
         return (
-          <article key={c.id} className="rounded-xl bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
-            <p className="text-lg font-bold">
+          <article key={c.id} className="s-panel m-surface" style={{ "--i": Math.min(n + 1, 8) } as React.CSSProperties}>
+            <p className="s-display text-[24px] leading-7 font-extrabold tracking-[-0.02em]">
               {INCIDENTS.find((i) => i.id === c.incident)?.label ?? "Umum"}
               {c.mode === "latihan" ? " (latihan)" : ""}
             </p>
@@ -42,6 +46,7 @@ export default function Riwayat() {
           </article>
         );
       })}
+      </div>
     </main>
   );
 }

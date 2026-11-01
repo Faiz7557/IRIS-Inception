@@ -27,22 +27,18 @@ export function CallHeader({
   const p = phase === "failed" ? { bg: "var(--sos)", fg: "#fff", label: t("fallback.title") } : paintOf(incident);
 
   return (
-    <header className="sticky top-0 z-40">
-      <div style={{ background: p.bg, color: p.fg }} className="flex min-h-[72px] items-center gap-3 px-4">
-        <IncidentIcon id={incident} size={30} />
+    <header className="sticky top-0 z-40 bg-[color:var(--color-bg)] px-2 pt-2">
+      <div style={{ background: p.bg, color: p.fg }} className="flex min-h-[80px] items-center gap-3 px-4">
+        <IncidentIcon id={incident} size={32} />
         <div className="flex min-w-0 flex-1 flex-col" aria-live="polite">
-          <span className="truncate text-[21px] leading-6 font-extrabold tracking-[-0.01em]">{p.label}</span>
-          <span className="text-[15px] leading-5 font-bold opacity-85">
+          <span className="s-display truncate text-[26px] leading-7 font-black tracking-[-0.03em]">{p.label}</span>
+          <span className="text-[15px] leading-5 font-semibold">
             {phase === "connected" ? <span className="font-mono tabular-nums">{clock}</span> : phase === "dialing" ? t("call.dialing") : null}
-            {practice && <span className="ml-2 rounded-[4px] bg-ink px-1.5 text-[12px] tracking-[0.06em] text-signal">LATIHAN</span>}
+            {practice && <span className="s-tag ml-2 !min-h-0 !px-1.5 !py-0 !text-[12px]">LATIHAN</span>}
           </span>
         </div>
         {onCancel && phase !== "ended" && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-12 shrink-0 rounded-[12px] border-[3px] border-current px-3.5 text-[17px] font-extrabold"
-          >
+          <button type="button" onClick={onCancel} className="m-btn m-btn--sm m-btn--line shrink-0 !px-3.5">
             {t("call.cancel")}
           </button>
         )}

@@ -1,88 +1,134 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { IncidentIcon, CheckIcon } from "@/components/icons";
-import { paintOf } from "@/lib/incidents";
+import { Words } from "@/components/PageHead";
 
-// Each step is shown, not told: a small live piece of the screen it teaches, plus one short line.
+// Screen 1 (brief §7): three steps, skippable, shown once. Panels and motion from the 8B "Sill" template.
 const STEPS = [
-  { t: "Pilih kejadian", d: "Ketuk gambar yang sesuai." },
-  { t: "Tahan tombol merah", d: "Tahan 3 detik. Kami menelepon 112 untuk Anda." },
-  { t: "Jawab dengan tombol", d: "Pertanyaan operator jadi tombol. Ketuk jawaban Anda." },
+  { t: "Pilih kejadian", d: "Ketuk salah satu dari enam ubin: kebakaran, kecelakaan, sakit, kejahatan, KDRT, atau bencana.", tone: "tone-orange" },
+  { t: "Tahan SOS 3 detik", d: "Tahan tombol merah selama 3 detik. Sistem menelepon 112 dan membacakan pesan untuk Anda.", tone: "tone-mustard" },
+  { t: "Jawab dengan tombol", d: "Pertanyaan operator tampil sebagai kartu. Ketuk jawaban, sistem yang membacakannya.", tone: "tone-sage" },
 ];
-
-function Demo({ step }: { step: number }) {
-  if (step === 0) {
-    const ids = ["kebakaran", "kecelakaan", "sakit", "kejahatan"];
-    return (
-      <div className="grid grid-cols-2 gap-2.5" aria-hidden>
-        {ids.map((id, i) => {
-          const p = paintOf(id);
-          return (
-            <div
-              key={id}
-              style={{ background: p.bg, color: p.fg }}
-              className={`flex h-[92px] flex-col justify-between rounded-[14px] p-3 ${i === 0 ? "shadow-[0_0_0_4px_var(--paint-white)]" : "opacity-45"}`}
-            >
-              <IncidentIcon id={id} size={28} />
-              <span className="text-[17px] font-extrabold">{p.label}</span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-  if (step === 1) {
-    return (
-      <div aria-hidden className="relative flex h-[104px] items-center gap-4 overflow-hidden rounded-[18px] bg-sos px-5 text-white">
-        <span className="absolute inset-y-0 left-0 w-2/3 bg-white/18" />
-        <span className="relative flex size-[58px] items-center justify-center rounded-full border-[5px] border-white text-[22px] font-extrabold">1</span>
-        <span className="relative text-[26px] font-extrabold">Terus tahan…</span>
-      </div>
-    );
-  }
-  return (
-    <div aria-hidden className="space-y-3 rounded-[14px] bg-asphalt-2 p-4">
-      <p className="text-[30px] leading-9 font-extrabold">Korban sadar?</p>
-      <div className="flex min-h-16 items-center justify-center gap-2 rounded-[12px] bg-done text-[20px] font-extrabold text-ink">
-        Ya <CheckIcon size={22} />
-      </div>
-      <div className="flex min-h-16 items-center justify-center rounded-[12px] bg-paint text-[20px] font-extrabold text-ink opacity-35">Tidak</div>
-    </div>
-  );
-}
+const FAQ = [
+  [
+    "Apakah ini menelepon 112 sungguhan?",
+    "Belum. Prototipe ini tersambung ke konsol operator simulasi. Akun baru juga mulai di mode latihan.",
+  ],
+  ["Bagaimana operator tahu jawaban saya?", "Anda mengetuk tombol jawaban. Sistem membacakannya dengan suara ke operator."],
+  [
+    "Bagaimana bila internet putus?",
+    "Aplikasi menyiapkan teks SMS berisi kejadian dan lokasi Anda. Tinggal kirim ke kontak darurat.",
+  ],
+  ["Siapa yang tahu kondisi medis saya?", "Hanya operator, dan hanya bila Anda setuju di profil."],
+  ["Bisa dipakai diam-diam?", "Bisa. Mode senyap membuat layar gelap, tanpa getar dan tanpa bunyi."],
+];
 
 export default function Mulai() {
   const r = useRouter();
-  const [i, setI] = useState(0);
   const done = () => {
     try { localStorage.setItem("j112.seen_intro", "1"); } catch { /* ignore */ }
     r.replace("/masuk");
   };
-  const last = i === STEPS.length - 1;
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[480px] flex-col px-5 pt-4 pb-6">
-      <div className="flex min-h-12 items-center justify-between">
-        <ol className="flex gap-1.5" aria-label={`Langkah ${i + 1} dari ${STEPS.length}`}>
-          {STEPS.map((_, n) => (
-            <li key={n} className={`h-1.5 w-10 rounded-full ${n <= i ? "bg-paint" : "bg-asphalt-3"}`} />
-          ))}
-        </ol>
-        <Button variant="ghost" onClick={done}>Lewati</Button>
-      </div>
+    <>
+      <header className="l-nav">
+        <a className="s-word" href="#hero" aria-label="Jembatan 112, ke atas">
+          J112
+        </a>
+        <nav className="l-nav__links" aria-label="Di halaman ini">
+          <a className="m-link" href="#cara">Cara pakai</a>
+          <a className="m-link" href="#tanya">Pertanyaan</a>
+        </nav>
+        <button type="button" onClick={done} className="m-btn m-btn--sm">
+          Lewati
+        </button>
+      </header>
 
-      <section aria-live="polite" className="mt-10 flex flex-1 flex-col gap-8">
-        <Demo step={i} />
-        <div>
-          <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">{STEPS[i].t}</h1>
-          <p className="mt-3 text-[20px] leading-7 text-paint-muted">{STEPS[i].d}</p>
+      <main className="l-main">
+        <section id="hero" className="l-hero" aria-labelledby="hero-title">
+          <div className="s-panel tone-orange l-hero__title">
+            <h1 id="hero-title" className="l-d1">
+              <Words text="Minta tolong tanpa bicara." />
+            </h1>
+          </div>
+          <div className="s-panel tone-ink l-hero__num" style={{ "--i": 1 } as React.CSSProperties} aria-hidden>
+            <span className="l-112">112</span>
+          </div>
+          <p className="s-panel tone-violet l-hero__lead" style={{ "--i": 2 } as React.CSSProperties}>
+            Jembatan 112 menghubungkan Anda dengan operator 112 tanpa perlu bicara. Untuk teman tuli dan teman yang sulit
+            bicara.
+          </p>
+          <div className="s-panel tone-taupe l-hero__cta" style={{ "--i": 3 } as React.CSSProperties}>
+            <p className="m-label">Prototipe · akun baru mulai di mode latihan</p>
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <button type="button" onClick={done} className="m-btn">
+                Mulai
+              </button>
+              <a className="m-link" href="#cara">Lihat caranya</a>
+            </div>
+          </div>
+        </section>
+
+        <section id="cara" className="l-steps" aria-labelledby="cara-title">
+          <div className="s-panel m-surface l-reveal l-steps__head">
+            <h2 id="cara-title" className="l-d2">Tiga langkah.</h2>
+            <p className="mt-4 text-[20px] leading-7">Sekali dipelajari, bisa dipakai saat panik.</p>
+          </div>
+          <ol className="l-stair">
+            {STEPS.map((s, i) => (
+              <li key={s.t} className={`s-panel l-reveal ${s.tone}`} style={{ "--step": i } as React.CSSProperties}>
+                <span className="l-num" aria-hidden>{i + 1}</span>
+                <p className="m-label mt-auto">Langkah {i + 1} dari {STEPS.length}</p>
+                <h3 className="s-h2">{s.t}</h3>
+                <p className="mt-3 text-[17px] leading-6">{s.d}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section id="tanya" className="l-faq" aria-labelledby="tanya-title">
+          <div className="s-panel tone-mauve l-reveal l-faq__head">
+            <h2 id="tanya-title" className="l-d2">Pertanyaan.</h2>
+          </div>
+          <div className="grid gap-2">
+            {FAQ.map(([q, a]) => (
+              <details key={q} className="m-surface l-reveal l-faq__item">
+                <summary>
+                  <span className="s-display text-[22px] leading-7 font-extrabold tracking-[-0.02em]">{q}</span>
+                  <span className="l-faq__mark" aria-hidden />
+                </summary>
+                <p className="pb-5 text-[18px] leading-7 text-[var(--color-text-muted)]">{a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section id="mulai" className="s-panel tone-ink l-reveal l-start" aria-labelledby="mulai-title">
+          <h2 id="mulai-title" className="l-d1">Mulai.</h2>
+          <div className="mt-8 flex flex-wrap items-end justify-between gap-6">
+            <p className="max-w-[28rem] text-[20px] leading-7">Masuk dengan nomor ponsel. Kami kirim kode 6 digit lewat SMS.</p>
+            <button type="button" onClick={done} className="m-btn l-start__btn">
+              Masuk sekarang
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <footer className="l-footer">
+        <div className="s-panel tone-ink">
+          <nav className="flex flex-wrap gap-x-6" aria-label="Kaki halaman">
+            <a className="m-link" href="#cara">Cara pakai</a>
+            <a className="m-link" href="#tanya">Pertanyaan</a>
+            <a className="m-link" href="#mulai">Mulai</a>
+          </nav>
+          <p className="mt-6 text-[15px] opacity-80">
+            © 2026 Jembatan 112 · Design: <a className="underline" href="https://8b.com/templates/sill/">8B Sill</a>
+          </p>
+          <p className="l-wordmark" aria-hidden>
+            Jembatan 112
+          </p>
         </div>
-      </section>
-
-      <Button size="xl" className="w-full" onClick={() => (last ? done() : setI(i + 1))}>
-        {last ? "Mulai" : "Lanjut"}
-      </Button>
-    </main>
+      </footer>
+    </>
   );
 }

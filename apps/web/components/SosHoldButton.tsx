@@ -4,8 +4,6 @@ import { vibrate } from "@/lib/geo";
 import { t } from "@/lib/copy";
 
 const HOLD_MS = 3000;
-const R = 22;
-const C = 2 * Math.PI * R;
 
 /** Hold 3 s (pointer, or Space/Enter anywhere on the page) to fire onComplete. Progress ring + 3-2-1. */
 export function SosHoldButton({
@@ -131,29 +129,22 @@ export function SosHoldButton({
         onPointerCancel={() => stop(true)}
         onContextMenu={(e) => e.preventDefault()}
         onBlur={() => stop(true)}
-        style={{ touchAction: "none", background: holding ? "var(--sos-pressed)" : "var(--sos)" }}
-        className="relative flex h-[104px] w-full select-none items-center gap-4 overflow-hidden rounded-[18px] px-5 text-left text-white shadow-[0_10px_28px_rgb(224_38_27/0.35)] disabled:opacity-60"
+        style={{ touchAction: "none", background: "var(--sos)" }}
+        className="relative isolate flex h-[112px] w-full select-none items-center gap-4 overflow-hidden px-5 text-left text-white disabled:opacity-60"
       >
-        {/* The route being driven: white paint fills the bar left to right while held. */}
+        {/* The template's button arch, slowed to the hold: it rises from the bottom and fills the bar at 3 s. */}
         <span
           aria-hidden
-          className="absolute inset-y-0 left-0 bg-white/18"
-          style={{ width: `${p * 100}%` }}
+          className="absolute -inset-x-[12%] top-0 -z-10 h-[150%] rounded-[50%_50%_0_0/34%_34%_0_0] bg-[var(--sos-pressed)]"
+          style={{ transform: `translateY(${(1 - p) * 101}%)` }}
         />
-        <svg width="58" height="58" viewBox="0 0 52 52" aria-hidden className="relative shrink-0">
-          <circle cx="26" cy="26" r={R} fill="none" stroke="rgb(255 255 255 / 0.3)" strokeWidth="5" />
-          <circle
-            cx="26" cy="26" r={R} fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round"
-            strokeDasharray={C} strokeDashoffset={C * (1 - p)} transform="rotate(-90 26 26)"
-          />
-          {holding && (
-            <text x="26" y="34" textAnchor="middle" fill="#fff" fontSize="22" fontWeight="800">{left}</text>
-          )}
-        </svg>
-        <span className="relative flex flex-col">
-          <span className="text-[26px] leading-8 font-extrabold tracking-[-0.01em] whitespace-nowrap">{holding ? "Terus tahan…" : t("home.sos")}</span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="s-display text-[34px] leading-9 font-black tracking-[-0.03em] whitespace-nowrap">{holding ? "Terus tahan…" : t("home.sos")}</span>
           <span className="text-[16px] leading-6 text-white/90">untuk memanggil 112</span>
         </span>
+        {holding && (
+          <span aria-hidden className="s-display shrink-0 text-[64px] leading-none font-black tabular-nums">{left}</span>
+        )}
       </button>
       <p id="sos-help" className={`mt-2 text-center text-[16px] leading-6 ${hint ? "font-bold text-signal" : "text-paint-muted"}`}>
         {hint

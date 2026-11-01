@@ -2,7 +2,7 @@
 import { use, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { IncidentIcon } from "@/components/icons";
-import { INCIDENTS } from "@/lib/incidents";
+import { INCIDENTS, paintOf } from "@/lib/incidents";
 
 interface ActiveCall {
   incident: string;
@@ -103,40 +103,44 @@ export default function KontakPage({ params }: { params: Promise<{ token: string
   const inc = INCIDENTS.find((i) => i.id === c?.incident);
   const name = data?.user_display_name ?? "";
   return (
-    <main className="mx-auto min-h-dvh max-w-md space-y-4 p-6 text-[var(--color-text)]">
-      <h1 className="text-2xl font-bold">Jembatan 112</h1>
-      <p role="alert" className="text-[var(--color-sos)]">{err}</p>
-      {data && !c && <p className="text-lg">Belum ada kejadian dari {name}.</p>}
-      {c && (
-        <section aria-live="polite" className="space-y-3">
-          <div
-            className="flex items-center gap-4 rounded-2xl p-5 text-white"
-            style={{ background: `var(${inc?.colorVar ?? "--color-navy"})` }}
-          >
-            <IncidentIcon id={inc?.id ?? "umum"} size={40} />
-            <div>
-              <p className="text-2xl font-bold">{inc?.label ?? "Darurat"}</p>
-              <p>{name} meminta bantuan</p>
+    <main className="mx-auto min-h-dvh w-full max-w-[480px] px-2 text-[var(--color-text)]">
+      <div className="s-bar">
+        <span className="s-word">J112</span>
+        <span className="m-label !mb-0">Status keluarga</span>
+      </div>
+      <div className="grid gap-2 pb-24">
+        {err && <p role="alert" className="s-panel m-surface font-semibold text-[var(--color-sos)]">{err}</p>}
+        {data && !c && <p className="s-panel m-surface text-lg">Belum ada kejadian dari {name}.</p>}
+        {c && (
+          <section aria-live="polite" className="grid gap-2">
+            <div className="s-panel flex items-center gap-4" style={{ background: paintOf(inc?.id).bg, color: paintOf(inc?.id).fg }}>
+              <IncidentIcon id={inc?.id ?? "umum"} size={44} />
+              <div>
+                <p className="s-display text-[34px] leading-9 font-black tracking-[-0.03em]">{inc?.label ?? "Darurat"}</p>
+                <p className="font-semibold">{name} meminta bantuan</p>
+              </div>
             </div>
-          </div>
-          {c.sos_confirmed_at && <p className="text-[var(--color-text-muted)]">{new Date(c.sos_confirmed_at).toLocaleTimeString("id-ID")}</p>}
-          <p className="text-xl font-bold">{statusText(c, name)}</p>
-          {c.location && (
-            <p>
-              {c.location.lat.toFixed(5)}, {c.location.lng.toFixed(5)}{" "}
-              <a href={c.location.maps_url} target="_blank" rel="noreferrer" className="font-bold underline text-[var(--color-accent)]">Buka di peta</a>
-            </p>
-          )}
-          <a href="tel:112" className="flex min-h-14 items-center justify-center rounded-xl bg-[var(--color-sos)] text-lg font-bold text-white">Telepon 112</a>
-        </section>
-      )}
-      {data && (
-        <section className="space-y-2 rounded-xl bg-[var(--color-surface)] p-4">
-          {ios && <p className="text-[var(--color-warning)]">Tambahkan ke Layar Utama agar notifikasi bisa muncul.</p>}
-          <button onClick={enablePush} className="min-h-12 w-full rounded-xl border-[3px] border-paint/60 font-bold text-paint">Izinkan notifikasi</button>
-          <p role="status">{push}</p>
-        </section>
-      )}
+            <div className="s-panel m-surface space-y-2" style={{ "--i": 1 } as React.CSSProperties}>
+              {c.sos_confirmed_at && <p className="m-label">{new Date(c.sos_confirmed_at).toLocaleTimeString("id-ID")}</p>}
+              <p className="s-h2">{statusText(c, name)}</p>
+              {c.location && (
+                <p>
+                  {c.location.lat.toFixed(5)}, {c.location.lng.toFixed(5)}{" "}
+                  <a href={c.location.maps_url} target="_blank" rel="noreferrer" className="m-link">Buka di peta</a>
+                </p>
+              )}
+            </div>
+            <a href="tel:112" className="m-btn m-btn--sos w-full">Telepon 112</a>
+          </section>
+        )}
+        {data && (
+          <section className="s-panel m-surface space-y-3" style={{ "--i": 2 } as React.CSSProperties}>
+            {ios && <p className="font-semibold text-[var(--color-warning)]">Tambahkan ke Layar Utama agar notifikasi bisa muncul.</p>}
+            <button onClick={enablePush} className="m-btn m-btn--line w-full">Izinkan notifikasi</button>
+            {push && <p role="status">{push}</p>}
+          </section>
+        )}
+      </div>
     </main>
   );
 }

@@ -2,11 +2,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { saveLocalContacts } from "@/lib/offline-store";
+import { PageHead } from "@/components/PageHead";
 
 interface Contact { id: string; name: string; phone: string; relation?: string }
 interface Created { contact?: Contact; status_url?: string; share_text?: string }
-const input =
-  "mt-1 min-h-12 w-full rounded-xl border-[3px] border-paint-muted/50 bg-asphalt-2 focus:border-signal px-4 text-lg";
+const input = "m-field";
 
 function norm(raw: string) {
   const s = raw.replace(/[\s-]/g, "");
@@ -59,49 +59,40 @@ export default function Kontak() {
   }
 
   return (
-    <main className="mx-auto max-w-md space-y-4 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Kontak darurat</h1>
-      {list.map((c) => (
-        <article key={c.id} className="rounded-xl bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
+    <main className="text-[var(--color-text)]">
+      <PageHead title="Kontak darurat" lead="Maksimal 3 orang. Mereka dapat tautan status saat Anda minta bantuan." back="/pengaturan" tone="mauve" />
+      <div className="s-page">
+      {list.map((c, n) => (
+        <article key={c.id} className="s-panel m-surface" style={{ "--i": n + 1 } as React.CSSProperties}>
           <p className="text-lg font-bold">
             {c.name}
             {c.relation ? ` (${c.relation})` : ""}
           </p>
           <p className="text-[var(--color-text-muted)]">{c.phone}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             {shares[c.id] && (
-              <a
-                href={wa(shares[c.id])}
-                target="_blank"
-                rel="noreferrer"
-                className="min-h-12 rounded-xl bg-[var(--color-primary)] px-4 py-3 font-extrabold text-ink"
-              >
+              <a href={wa(shares[c.id])} target="_blank" rel="noreferrer" className="m-btn m-btn--sm">
                 Bagikan lewat WhatsApp
               </a>
             )}
-            <button
-              onClick={() => rotate(c.id)}
-              className="min-h-12 rounded-xl border-[3px] border-paint/60 px-4 font-bold text-paint"
-            >
+            <button onClick={() => rotate(c.id)} className="m-btn m-btn--sm m-btn--line">
               Tautan baru
             </button>
-            <button
-              onClick={() => del(c.id)}
-              className="min-h-12 rounded-xl border-2 border-[var(--color-sos)] px-4 font-bold text-[var(--color-sos)]"
-            >
+            <button onClick={() => del(c.id)} className="m-btn m-btn--sm m-btn--danger">
               Hapus
             </button>
           </div>
         </article>
       ))}
       {list.length < 3 ? (
-        <form onSubmit={add} className="space-y-3">
+        <form onSubmit={add} className="s-panel m-surface space-y-4" style={{ "--i": list.length + 1 } as React.CSSProperties}>
+          <h2 className="s-h2">Tambah kontak</h2>
           <label className="block">
-            <span className="font-bold">Nama</span>
+            <span className="m-label">Nama</span>
             <input className={input} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           </label>
           <label className="block">
-            <span className="font-bold">Nomor ponsel</span>
+            <span className="m-label">Nomor ponsel</span>
             <input
               className={input}
               type="tel"
@@ -111,19 +102,20 @@ export default function Kontak() {
             />
           </label>
           <label className="block">
-            <span className="font-bold">Hubungan</span>
+            <span className="m-label">Hubungan</span>
             <input className={input} value={f.relation} onChange={(e) => setF({ ...f, relation: e.target.value })} />
           </label>
-          <p role="alert" className="text-[var(--color-sos)]">
-            {err}
-          </p>
-          <button className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-extrabold text-ink">
-            Tambah kontak
-          </button>
+          {err && (
+            <p role="alert" className="font-semibold text-[var(--color-sos)]">
+              {err}
+            </p>
+          )}
+          <button className="m-btn w-full">Tambah kontak</button>
         </form>
       ) : (
-        <p className="text-[var(--color-text-muted)]">Maksimal 3 kontak.</p>
+        <p className="s-panel m-surface text-[var(--color-text-muted)]">Maksimal 3 kontak.</p>
       )}
+      </div>
     </main>
   );
 }

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { COPY } from "@/lib/copy";
 import { saveLocalProfile } from "@/lib/offline-store";
+import { PageHead } from "@/components/PageHead";
 
 const VERSION = "medis-v1-2026-10-31";
 const BLOOD = ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const input =
-  "mt-1 min-h-12 w-full rounded-xl border-[3px] border-paint-muted/50 bg-asphalt-2 focus:border-signal px-4 text-lg disabled:opacity-50";
+const input = "m-field";
 
 interface ProfileRes {
   profile: { display_name?: string; address?: string; landmark?: string; blood_type?: string; medical_notes?: string };
@@ -75,20 +75,24 @@ export default function Profil() {
   }
 
   return (
-    <main className="mx-auto max-w-md space-y-4 p-6 pb-24 text-[var(--color-text)]">
-      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">{baru ? "Di mana Anda tinggal?" : "Profil darurat"}</h1>
-      {baru && <p className="text-lg">Petugas memakai alamat ini kalau GPS tidak ada.</p>}
-      <form onSubmit={save} className="space-y-4">
+    <main className="text-[var(--color-text)]">
+      {baru ? (
+        <PageHead title="Di mana Anda tinggal?" lead="Petugas memakai alamat ini kalau GPS tidak ada." tone="sage" />
+      ) : (
+        <PageHead title="Profil darurat" lead="Dibacakan ke operator saat Anda meminta bantuan." back="/pengaturan" tone="sage" />
+      )}
+      <div className="s-page">
+      <form onSubmit={save} className="s-panel m-surface space-y-5" style={{ "--i": 1 } as React.CSSProperties}>
         <label className="block">
-          <span className="font-bold">Nama panggilan</span>
+          <span className="m-label">Nama panggilan</span>
           <input className={input} value={f.display_name} onChange={set("display_name")} autoComplete="nickname" />
         </label>
         <label className="block">
-          <span className="font-bold">Alamat</span>
+          <span className="m-label">Alamat</span>
           <input className={input} value={f.address} onChange={set("address")} autoComplete="street-address" />
         </label>
         <label className="block">
-          <span className="font-bold">Patokan</span>
+          <span className="m-label">Patokan</span>
           <input className={input} value={f.landmark} onChange={set("landmark")} />
         </label>
         {!baru && (
@@ -98,7 +102,7 @@ export default function Profil() {
               <span>{COPY["consent.medical"]}</span>
             </label>
             <label className="block">
-              <span className="font-bold">Golongan darah</span>
+              <span className="m-label">Golongan darah</span>
               <select className={input} value={f.blood_type} onChange={set("blood_type")} disabled={!consent}>
                 {BLOOD.map((b) => (
                   <option key={b} value={b}>
@@ -108,33 +112,30 @@ export default function Profil() {
               </select>
             </label>
             <label className="block">
-              <span className="font-bold">Kondisi medis</span>
+              <span className="m-label">Kondisi medis</span>
               <textarea className={input} rows={3} value={f.medical_notes} onChange={set("medical_notes")} disabled={!consent} />
             </label>
           </>
         )}
-        <p role="alert" className="text-[var(--color-sos)]">
-          {err}
-        </p>
-        <button
-          disabled={busy}
-          className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] text-lg font-extrabold text-ink disabled:opacity-60"
-        >
+        {err && (
+          <p role="alert" className="font-semibold text-[var(--color-sos)]">
+            {err}
+          </p>
+        )}
+        <button disabled={busy} className="m-btn w-full">
           {busy ? "Menyimpan…" : baru ? "Simpan dan mulai" : "Simpan"}
         </button>
       </form>
       {preview && !baru && (
-        <section className="rounded-xl bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
-          <h2 className="font-bold">Yang akan didengar operator</h2>
-          <p className="mt-2">{preview}</p>
-          <button
-            onClick={() => r.push("/kontak")}
-            className="mt-4 min-h-12 w-full rounded-xl border-[3px] border-paint/60 font-bold text-paint"
-          >
+        <section className="s-panel tone-ink" style={{ "--i": 2 } as React.CSSProperties}>
+          <h2 className="m-label">Yang akan didengar operator</h2>
+          <p className="mt-2 text-[20px] leading-8">{preview}</p>
+          <button onClick={() => r.push("/kontak")} className="m-btn m-btn--line mt-6 w-full">
             Lanjut ke kontak darurat
           </button>
         </section>
       )}
+      </div>
     </main>
   );
 }

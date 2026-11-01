@@ -15,13 +15,13 @@ export interface Stop {
 export function RouteBoard({
   stops, paint, compact = false, tone = "dark",
 }: { stops: Stop[]; paint: { bg: string; fg: string }; compact?: boolean; tone?: "dark" | "light" }) {
-  // "light" is the console's paper register; the phone stays on night asphalt.
-  const muted = tone === "light" ? "text-[#5d5a52]" : "text-paint-muted";
+  // "light" is the console's paper register; "dark" (the phone) follows the user's light/dark theme.
+  const muted = tone === "light" ? "text-[#5d5a52]" : "text-text-muted";
   const current = stops.find((s) => s.state === "current") ?? [...stops].reverse().find((s) => s.state === "done");
 
   if (compact) {
     return (
-      <div className={`rounded-[12px] px-3 pt-3 pb-2 ${tone === "light" ? "bg-white" : "bg-asphalt-2"}`} aria-label={`Rute panggilan: ${current?.label ?? ""}`}>
+      <div className={`px-3 pt-3 pb-2 ${tone === "light" ? "rounded-[12px] bg-white" : "bg-surface"}`} aria-label={`Rute panggilan: ${current?.label ?? ""}`}>
         <ol className="flex items-center" aria-hidden>
           {stops.map((s, i) => (
             <li key={s.label} className="flex flex-1 items-center last:flex-none">
@@ -47,7 +47,7 @@ export function RouteBoard({
             <p
               className={
                 s.state === "current"
-                  ? "text-[26px] leading-8 font-extrabold tracking-[-0.01em]"
+                  ? `text-[28px] leading-8 font-black tracking-[-0.03em] ${tone === "light" ? "" : "s-display"}`
                   : s.state === "done"
                     ? "text-[19px] leading-7 font-bold"
                     : `text-[19px] leading-7 font-bold ${muted}`
@@ -67,7 +67,7 @@ export function RouteBoard({
 function Dot({ state, paint, tone, small = false }: { state: StopState; paint: { bg: string; fg: string }; tone: "dark" | "light"; small?: boolean }) {
   const size = small ? "size-6" : state === "current" ? "size-11" : "size-9";
   if (state === "todo")
-    return <span className={`${size} shrink-0 rounded-full border-[3px] border-dashed ${tone === "light" ? "border-[#9a968c]" : "border-paint-muted/60"}`} />;
+    return <span className={`${size} shrink-0 rounded-full border-[3px] border-dashed ${tone === "light" ? "border-[#9a968c]" : "border-text-muted"}`} />;
   return (
     <span
       className={`${size} relative flex shrink-0 items-center justify-center rounded-full`}
@@ -90,7 +90,7 @@ function Segment({ on, paint, tone, horizontal = false }: { on: boolean; paint: 
     <span className={`${shape} rounded-full`} style={{ background: paint.bg }} />
   ) : (
     <span
-      className={`${shape} ${horizontal ? "border-t-[3px]" : "border-l-[3px]"} border-dashed ${tone === "light" ? "border-[#9a968c]" : "border-paint-muted/50"}`}
+      className={`${shape} ${horizontal ? "border-t-[3px]" : "border-l-[3px]"} border-dashed ${tone === "light" ? "border-[#9a968c]" : "border-text-muted/70"}`}
     />
   );
 }

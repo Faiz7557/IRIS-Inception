@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { INCIDENTS } from "@/lib/incidents";
+import { t } from "@/lib/copy";
+import { PageHead } from "@/components/PageHead";
 import { loadLocal, type LocalContact, type LocalProfile } from "@/lib/offline-store";
 
 // Written by lib/geo.ts useGeo on every fix.
@@ -47,21 +49,25 @@ export default function Offline() {
   const smsHref = (phone: string) => `sms:${phone}${ios ? "&" : "?"}body=${encodeURIComponent(text)}`;
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md space-y-4 p-6 text-[var(--color-text)]">
-      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Internet putus</h1>
-      <p>Kirim SMS ke kontak darurat Anda. Teks sudah siap.</p>
-      <pre className="whitespace-pre-wrap rounded-xl bg-[var(--color-surface)] p-4 font-sans">{text}</pre>
-      {contacts.length === 0 && <p className="text-[var(--color-text-muted)]">Belum ada kontak tersimpan di ponsel ini. Telepon 112 bila bisa.</p>}
-      {contacts.map((c) => (
-        <a key={c.phone} href={smsHref(c.phone)} className="flex min-h-14 items-center justify-center rounded-xl bg-[var(--color-primary)] text-lg font-extrabold text-ink">
-          Buka SMS: {c.name}
-        </a>
-      ))}
-      {online && (
-        <button onClick={() => (location.href = "/")} className="min-h-14 w-full rounded-xl border-[3px] border-paint/60 text-lg font-bold text-paint">
-          Coba panggil lagi
-        </button>
-      )}
+    <main className="min-h-dvh text-[var(--color-text)]">
+      <PageHead title={t("offline.title")} lead="Kirim SMS ke kontak darurat Anda. Teks sudah siap." tone="orange" />
+      <div className="s-page">
+        <div className="s-panel m-surface" style={{ "--i": 1 } as React.CSSProperties}>
+          <p className="m-label">Teks SMS</p>
+          <pre className="whitespace-pre-wrap font-sans text-[17px] leading-7">{text}</pre>
+        </div>
+        {contacts.length === 0 && <p className="s-panel m-surface text-[var(--color-text-muted)]">Belum ada kontak tersimpan di ponsel ini. Telepon 112 bila bisa.</p>}
+        {contacts.map((c) => (
+          <a key={c.phone} href={smsHref(c.phone)} className="m-btn w-full">
+            Buka SMS: {c.name}
+          </a>
+        ))}
+        {online && (
+          <button onClick={() => (location.href = "/")} className="m-btn m-btn--line w-full">
+            Coba panggil lagi
+          </button>
+        )}
+      </div>
     </main>
   );
 }

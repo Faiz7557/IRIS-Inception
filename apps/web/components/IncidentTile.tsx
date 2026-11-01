@@ -2,10 +2,10 @@
 import { IncidentIcon, CheckIcon } from "./icons";
 import { paintOf } from "@/lib/incidents";
 
-/** One route-paint plate. Selected = white paint outline + check, like a marked stop. */
+/** One flat Sill panel in the incident's paint. Selected = thick ink frame + check; the others dim. */
 export function IncidentTile({
-  id, label, selected, dimmed, onToggle,
-}: { id: string; label: string; selected: boolean; dimmed: boolean; onToggle: () => void }) {
+  id, label, selected, dimmed, onToggle, order = 0,
+}: { id: string; label: string; selected: boolean; dimmed: boolean; onToggle: () => void; order?: number }) {
   const p = paintOf(id);
   return (
     <button
@@ -17,15 +17,15 @@ export function IncidentTile({
         // Keyboard users (Tab + Space, detail 0) keep focus here.
         if (e.detail > 0) e.currentTarget.blur();
       }}
-      style={{ background: p.bg, color: p.fg }}
-      className={`relative flex h-[120px] flex-col justify-between rounded-[14px] p-3.5 text-left transition-[opacity,transform,box-shadow] duration-200 ease-out active:scale-[0.97] ${
-        selected ? "shadow-[0_0_0_4px_var(--paint-white),0_8px_20px_rgb(0_0_0/0.5)]" : ""
+      style={{ background: p.bg, color: p.fg, "--i": order } as React.CSSProperties}
+      className={`s-open relative flex h-[112px] flex-col justify-between p-3.5 text-left transition-[opacity,box-shadow] duration-200 ease-out ${
+        selected ? "shadow-[inset_0_0_0_5px_var(--ink-dark)]" : ""
       } ${dimmed ? "opacity-60" : ""}`}
     >
-      <IncidentIcon id={id} size={36} />
-      <span className="text-[21px] leading-6 font-extrabold tracking-[-0.01em]">{label}</span>
+      <IncidentIcon id={id} size={34} />
+      <span className="s-display text-[22px] leading-6 font-extrabold tracking-[-0.02em]">{label}</span>
       {selected && (
-        <span className="absolute top-2.5 right-2.5 flex size-8 items-center justify-center rounded-full bg-paint text-ink" aria-hidden>
+        <span className="absolute top-3 right-3 flex size-8 items-center justify-center bg-[var(--ink-dark)] text-[var(--paint-general)]" aria-hidden>
           <CheckIcon size={20} />
         </span>
       )}

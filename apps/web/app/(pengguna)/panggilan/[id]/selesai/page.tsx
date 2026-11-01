@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { loadProfile } from "@/lib/geo";
 import type { EndedData } from "@/lib/protocol";
+import { PageHead } from "@/components/PageHead";
 
 interface Summary extends Partial<EndedData> { answered?: number; practice?: boolean }
 
@@ -42,26 +43,33 @@ export default function SelesaiPage() {
 
   const d = s.duration_s ?? 0;
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-[480px] space-y-4 px-4 py-6">
-      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Panggilan selesai</h1>
-      <p className="text-[18px]">{REASON[s.reason ?? ""] ?? ""}</p>
-      <dl className="space-y-2 rounded-[16px] bg-[color:var(--color-surface)] p-4">
-        <div className="flex justify-between"><dt>Durasi</dt><dd className="font-bold">{Math.floor(d / 60)} mnt {d % 60} dtk</dd></div>
-        <div className="flex justify-between"><dt>Pertanyaan terjawab</dt><dd className="font-bold">{s.answered ?? 0}</dd></div>
+    <main className="min-h-dvh">
+      <PageHead title="Panggilan selesai" lead={REASON[s.reason ?? ""] ?? ""} tone="sage" />
+      <div className="s-page">
+      <dl className="grid grid-cols-2 gap-2">
+        <div className="s-panel m-surface" style={{ "--i": 1 } as React.CSSProperties}>
+          <dt className="m-label">Durasi</dt>
+          <dd className="s-display text-[34px] leading-none font-black tracking-[-0.03em]">{Math.floor(d / 60)}:{String(d % 60).padStart(2, "0")}</dd>
+        </div>
+        <div className="s-panel m-surface" style={{ "--i": 2 } as React.CSSProperties}>
+          <dt className="m-label">Terjawab</dt>
+          <dd className="s-display text-[34px] leading-none font-black tracking-[-0.03em]">{s.answered ?? 0}</dd>
+        </div>
       </dl>
       {offer === "ask" && (
-        <div className="space-y-2 rounded-[16px] bg-[color:var(--color-warning-bg)] p-4">
-          <p className="font-bold">Matikan mode latihan?</p>
-          <div className="flex gap-3">
-            <button type="button" onClick={turnOffPractice} className="min-h-[56px] flex-1 rounded-[12px] bg-[color:var(--color-primary)] font-extrabold text-ink">Ya</button>
-            <button type="button" onClick={() => setOffer(null)} className="min-h-[56px] flex-1 rounded-[12px] border-[3px] border-paint/60 font-bold text-paint">Nanti</button>
+        <div className="s-panel tone-mustard space-y-3" style={{ "--i": 3 } as React.CSSProperties}>
+          <p className="s-h2">Matikan mode latihan?</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={turnOffPractice} className="m-btn flex-1">Ya</button>
+            <button type="button" onClick={() => setOffer(null)} className="m-btn m-btn--line flex-1">Nanti</button>
           </div>
         </div>
       )}
-      {offer === "done" && <p role="status">Mode latihan dimatikan.</p>}
-      <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-extrabold text-ink">
+      {offer === "done" && <p role="status" className="s-panel m-surface font-semibold">Mode latihan dimatikan.</p>}
+      <Link href="/" className="m-btn w-full">
         Kembali ke beranda
       </Link>
+      </div>
     </main>
   );
 }

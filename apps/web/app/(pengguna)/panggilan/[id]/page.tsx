@@ -12,7 +12,6 @@ import { CallHeader, type CallPhase } from "@/components/CallHeader";
 import { QuestionCard, type AnswerStatus } from "@/components/QuestionCard";
 import { ShortInputSheet } from "@/components/ShortInputSheet";
 import { RouteBoard, type Stop } from "@/components/RouteBoard";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CheckIcon, CloseIcon, IncidentIcon, SosIcon, WaveIcon } from "@/components/icons";
 
@@ -28,8 +27,8 @@ const CSS = `
 /** The opener is ~35 words of spoken Indonesian: available, but folded so a panicked user sees one short line. */
 function OpenerText({ text }: { text: string }) {
   return (
-    <details className="rounded-[12px] bg-[color:var(--color-surface)] p-3 text-left">
-      <summary className="min-h-[44px] cursor-pointer content-center text-[16px] font-bold text-[color:var(--color-accent)]">
+    <details className="m-surface px-[18px] py-3 text-left">
+      <summary className="min-h-[44px] cursor-pointer content-center text-[16px] font-semibold underline underline-offset-4">
         Lihat pesan untuk operator
       </summary>
       <p className="mt-2 leading-7">{text}</p>
@@ -247,9 +246,9 @@ export default function PanggilanPage() {
   if (sess === undefined) return null;
   if (sess === null)
     return (
-      <main className="mx-auto max-w-[480px] space-y-4 p-4">
-        <h1 className="text-[24px] font-bold">Sesi panggilan tidak ditemukan</h1>
-        <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-extrabold text-ink">
+      <main className="s-page">
+        <h1 className="s-panel tone-ink s-title">Sesi panggilan tidak ditemukan</h1>
+        <Link href="/" className="m-btn w-full">
           Kembali ke beranda
         </Link>
       </main>
@@ -286,58 +285,56 @@ export default function PanggilanPage() {
   let view: React.ReactNode;
   if (fb) {
     view = (
-      <section aria-labelledby="fb-title" className="space-y-4">
-        <div className="flex items-center gap-4 rounded-[14px] bg-sos p-4 text-white">
+      <section aria-labelledby="fb-title" className="space-y-2">
+        <div className="s-panel flex items-center gap-4 bg-sos text-white">
           <SosIcon size={40} />
-          <h2 id="fb-title" className="text-[26px] leading-8 font-extrabold tracking-[-0.01em]">{t("fallback.title")}</h2>
+          <h2 id="fb-title" className="s-h2">{t("fallback.title")}</h2>
         </div>
         {fb.contacts_notified > 0 && (
-          <p className="flex items-center gap-3 rounded-[12px] bg-asphalt-2 p-4 text-[18px] leading-7 font-bold">
-            <span className="text-done"><CheckIcon size={24} /></span>
+          <p className="s-panel m-surface flex items-center gap-3 text-[18px] leading-7 font-semibold">
+            <CheckIcon size={24} />
             {t("fallback.contacts_notified")}
           </p>
         )}
         {fb.can_retry ? (
-          <Button size="xl" className="w-full" onClick={() => sock.current?.send("retry", {})}>{t("fallback.retry")}</Button>
+          <button type="button" className="m-btn w-full" onClick={() => sock.current?.send("retry", {})}>{t("fallback.retry")}</button>
         ) : (
           <>
-            <p className="text-[18px] font-bold">Hubungi orang di sekitar Anda.</p>
-            <Button size="xl" className="w-full" onClick={() => setShowOfficer(true)}>Tunjukkan layar ke orang lain</Button>
+            <p className="s-panel m-surface text-[18px] font-semibold">Hubungi orang di sekitar Anda.</p>
+            <button type="button" className="m-btn w-full" onClick={() => setShowOfficer(true)}>Tunjukkan layar ke orang lain</button>
           </>
         )}
-        <div className="space-y-2">
-          {(contacts.length ? contacts : [{ name: "", phone: "" }]).map((c, i) => (
-            <Button key={i} asChild variant="outline" size="lg" className="w-full">
-              <a href={smsHref(c.phone, fb.sms_text)}>{t("fallback.sms")}{c.name ? `: ${c.name}` : ""}</a>
-            </Button>
-          ))}
-        </div>
+        {(contacts.length ? contacts : [{ name: "", phone: "" }]).map((c, i) => (
+          <a key={i} href={smsHref(c.phone, fb.sms_text)} className="m-btn m-btn--line w-full">
+            {t("fallback.sms")}{c.name ? `: ${c.name}` : ""}
+          </a>
+        ))}
       </section>
     );
   } else if (dispatched) {
     view = (
-      <section className="space-y-5" aria-labelledby="help-title">
-        <div className="flex items-center gap-4 rounded-[14px] p-4" style={{ background: "var(--done)", color: "var(--ink-dark)" }}>
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-ink text-done"><CheckIcon size={34} /></span>
-          <h2 id="help-title" className="text-[28px] leading-8 font-extrabold tracking-[-0.01em]">{t("help.title")}</h2>
+      <section className="space-y-2" aria-labelledby="help-title">
+        <div className="s-panel tone-sage flex items-center gap-4">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-ink text-sill-sage"><CheckIcon size={34} /></span>
+          <h2 id="help-title" className="s-title !text-[40px]">{t("help.title")}</h2>
         </div>
-        <RouteBoard stops={stops} paint={paint} />
-        <p className="rounded-[12px] bg-asphalt-2 p-4 text-[18px] leading-7 font-bold">{t("help.stay_safe")}</p>
-        <Button size="xl" className="w-full" onClick={() => setShowOfficer(true)}>Tunjukkan ke petugas</Button>
+        <div className="s-panel m-surface"><RouteBoard stops={stops} paint={paint} /></div>
+        <p className="s-panel m-surface text-[18px] leading-7 font-semibold">{t("help.stay_safe")}</p>
+        <button type="button" className="m-btn w-full" onClick={() => setShowOfficer(true)}>Tunjukkan ke petugas</button>
       </section>
     );
   } else if (card) {
     view = (
       <>
         <RouteBoard stops={stops} paint={paint} compact />
-        {ans === "sent" && waiting && <p className="text-paint-muted">Menyiapkan pertanyaan…</p>}
+        {ans === "sent" && waiting && <p className="px-2 text-text-muted">Menyiapkan pertanyaan…</p>}
         <QuestionCard
           ref={cardRef} card={card} chosen={chosen} status={ans} gpsAccuracy={fix?.accuracy_m ?? null}
           pendingAfter={Math.max(0, total - idx)} silentDot={isSilent()} onOption={choose} onRepeat={repeat}
         />
-        {ansErr && <p role="alert" className="font-bold text-signal">{ansErr}</p>}
+        {ansErr && <p role="alert" className="s-panel tone-mustard font-semibold">{ansErr}</p>}
         {infos.map((x, i) => (
-          <p key={i} className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6">{x}</p>
+          <p key={i} className="m-surface px-[18px] py-3 text-[16px] leading-6">{x}</p>
         ))}
       </>
     );
@@ -345,16 +342,16 @@ export default function PanggilanPage() {
     // Waiting stages (dialing, opener, listening) share one layout: the route is the screen.
     const speaking = startedAt !== null && (st.state === "PEMBUKA" || !!opener?.speaking);
     view = (
-      <section className="space-y-5" aria-live="polite">
+      <section className="space-y-2" aria-live="polite">
         <h1 className="sr-only">{!startedAt ? t("call.dialing") : speaking ? t("call.opener.title") : "Mendengarkan operator"}</h1>
-        <RouteBoard stops={stops} paint={paint} />
-        <p className="flex min-h-14 items-center gap-3 rounded-[12px] bg-asphalt-2 px-4 text-[18px] leading-6 font-bold">
-          {startedAt && opSpeaking ? <WaveIcon size={24} /> : <span aria-hidden className="size-3 shrink-0 animate-pulse rounded-full bg-signal" />}
+        <div className="s-panel m-surface"><RouteBoard stops={stops} paint={paint} /></div>
+        <p className="s-panel tone-ink flex items-center gap-3 !py-4 text-[18px] leading-6 font-semibold">
+          {startedAt && opSpeaking ? <WaveIcon size={24} /> : <span aria-hidden className="size-3 shrink-0 animate-pulse rounded-full bg-sill-mustard" />}
           {startedAt && opSpeaking ? t("call.operator_speaking") : waiting ? "Menyiapkan pertanyaan…" : t("call.wait")}
         </p>
-        {partial && <p className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6 text-paint-muted">{partial}</p>}
+        {partial && <p className="m-surface px-[18px] py-3 text-[16px] leading-6 text-text-muted">{partial}</p>}
         {infos.map((x, i) => (
-          <p key={i} className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6">{x}</p>
+          <p key={i} className="m-surface px-[18px] py-3 text-[16px] leading-6">{x}</p>
         ))}
         <OpenerText text={opener?.text ?? (sess.opener || `Panggilan relay otomatis untuk ${incidentLabel}.`)} />
       </section>
@@ -366,18 +363,20 @@ export default function PanggilanPage() {
       <style>{CSS}</style>
       {flash > 0 && <div key={flash} className="call-flash" aria-hidden />}
       <CallHeader phase={phase} incident={sess.incident} startedAt={startedAt} practice={sess.practice} onCancel={() => setConfirm(true)} />
-      {conn === "reconnecting" && <p role="status" className="bg-warning-bg px-4 py-1.5 text-[16px] font-bold text-signal">Menyambung ulang…</p>}
-      {authFailed && (
-        <div role="alert" className="space-y-3 bg-warning-bg px-4 py-3">
-          <p className="text-[18px] font-bold text-signal">Sesi panggilan tidak bisa diverifikasi. Silakan mulai ulang dari beranda.</p>
-          <Button asChild size="lg" className="w-full"><Link href="/">Kembali ke beranda</Link></Button>
-        </div>
-      )}
-      {conn === "closed" && !authFailed && <p role="alert" className="bg-warning-bg px-4 py-1.5 text-[16px] font-bold text-signal">Sambungan terputus.</p>}
-      {(deg === 2 || deg === 3) && (
-        <p className="px-4 pt-2 text-[16px] font-bold text-signal">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
-      )}
-      <main className="space-y-4 px-4 pt-4 pb-8">{view}</main>
+      <div className="space-y-2 px-2 pt-2 empty:hidden">
+        {conn === "reconnecting" && <p role="status" className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">Menyambung ulang…</p>}
+        {authFailed && (
+          <div role="alert" className="tone-mustard space-y-3 px-[18px] py-4">
+            <p className="text-[18px] font-semibold">Sesi panggilan tidak bisa diverifikasi. Silakan mulai ulang dari beranda.</p>
+            <Link href="/" className="m-btn w-full">Kembali ke beranda</Link>
+          </div>
+        )}
+        {conn === "closed" && !authFailed && <p role="alert" className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">Sambungan terputus.</p>}
+        {(deg === 2 || deg === 3) && (
+          <p className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
+        )}
+      </div>
+      <main className="space-y-2 px-2 pt-2 pb-8">{view}</main>
 
       {sheet && (
         <ShortInputSheet
@@ -388,12 +387,12 @@ export default function PanggilanPage() {
       )}
 
       <Dialog open={confirm} onOpenChange={setConfirm}>
-        <DialogContent role="alertdialog" showCloseButton={false} className="max-w-[400px] rounded-[16px] bg-asphalt-2 p-5">
-          <DialogTitle className="text-[26px] leading-8 font-extrabold">{t("call.cancel.confirm")}</DialogTitle>
-          <DialogDescription className="text-[17px] leading-6 text-paint-muted">Operator 112 tidak bisa lagi bertanya kepada Anda.</DialogDescription>
-          <div className="mt-2 flex gap-3">
-            <Button autoFocus size="lg" variant="outline" className="flex-1" onClick={() => setConfirm(false)}>Tidak</Button>
-            <Button size="lg" variant="sos" className="flex-1" onClick={cancel}>Ya, batalkan</Button>
+        <DialogContent role="alertdialog" showCloseButton={false} className="max-w-[400px] rounded-none border-0 bg-surface p-[18px] text-text">
+          <DialogTitle className="s-h2">{t("call.cancel.confirm")}</DialogTitle>
+          <DialogDescription className="text-[17px] leading-6 text-text-muted">Operator 112 tidak bisa lagi bertanya kepada Anda.</DialogDescription>
+          <div className="mt-2 flex gap-2">
+            <button type="button" autoFocus className="m-btn m-btn--line flex-1" onClick={() => setConfirm(false)}>Tidak</button>
+            <button type="button" className="m-btn m-btn--sos flex-1" onClick={cancel}>Ya, batalkan</button>
           </div>
         </DialogContent>
       </Dialog>
@@ -406,7 +405,7 @@ export default function PanggilanPage() {
         >
           <button type="button" onClick={() => setShowOfficer(false)} aria-label="Tutup" className="absolute top-3 right-3 flex size-14 items-center justify-center"><CloseIcon size={34} /></button>
           <IncidentIcon id={sess.incident} size={72} />
-          <p className="text-[44px] leading-[48px] font-extrabold tracking-[-0.02em]">Saya tuli. Tolong bantu saya.</p>
+          <p className="s-display text-[48px] leading-[50px] font-black tracking-[-0.035em]">Saya tuli. Tolong bantu saya.</p>
           <p className="text-[30px] leading-9 font-bold">{incidentLabel}</p>
           {name && <p className="text-[24px] leading-8">Nama: {name}</p>}
         </div>
