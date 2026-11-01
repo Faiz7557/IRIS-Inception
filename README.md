@@ -19,6 +19,7 @@ Hackathon INCEPTION 2026, Subtema 2: Health, Well-being, and Accessibility. Tim 
 - [Tumpukan teknologi](#tumpukan-teknologi)
 - [Struktur repositori](#struktur-repositori)
 - [Cara menjalankan lokal](#cara-menjalankan-lokal)
+- [Deployment dan alur pembaruan](#deployment-dan-alur-pembaruan)
 - [Pengujian otomatis](#pengujian-otomatis)
 - [Hasil evaluasi](#hasil-evaluasi)
 - [Keamanan dan privasi](#keamanan-dan-privasi)
@@ -65,9 +66,9 @@ Operator tetap memakai telepon biasa. Pada MVP, telepon operator digantikan kons
 
 | Item | Produksi | Lokal |
 |---|---|---|
-| URL PWA (ponsel) | `TODO: URL Vercel` | `http://localhost:3000` |
-| URL konsol operator | `TODO: URL Vercel/konsol` | `http://localhost:3000/konsol` |
-| Sandi konsol | `TODO` | `smoke` |
+| URL PWA (ponsel) | `https://jembatan-112-web.vercel.app` | `http://localhost:3000` |
+| URL konsol operator | `https://jembatan-112-web.vercel.app/konsol` | `http://localhost:3000/konsol` |
+| Sandi konsol | `iris112` | `iris112` |
 | Nomor uji OTP | `081200000001` | `081200000001` |
 | Kode OTP | `112112` | `112112` |
 
@@ -293,6 +294,57 @@ Buka di browser:
    cp .env.example .env.local   # isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY
    npm run dev
    ```
+
+## Deployment dan alur pembaruan
+
+Sistem berjalan di arsitektur cloud terpisah untuk backend real-time dan frontend PWA:
+
+- **Backend (Fly.io):** Berjalan sebagai single instance (`min_machines_running = 1`, `auto_stop_machines = "off"`) di region Singapura (`sin`) pada aplikasi `jembatan-112-api` (`https://jembatan-112-api.fly.dev`). In-memory session & koneksi WebSocket user/operator terjaga tanpa cold start.
+- **Frontend PWA (Vercel):** Dihosting di Vercel (`https://jembatan-112-web.vercel.app`) dengan region serverless `sin1` dan Service Worker (`/sw.js`) cache-controlled.
+- **Database (Supabase Cloud):** PostgreSQL di region `eu-west-1` (`ekamkaznlvcohravfyqv`) terhubung via Supavisor pooler port 6543.
+
+### Alur pembaruan backend (Fly.io)
+
+Bila ada perubahan pada `apps/api/`, `Dockerfile`, atau `fly.toml`:
+
+1. Jalankan unit test lokal terlebih dahulu:
+   ```bash
+   uv run pytest -q
+   ```
+2. Deploy versi baru ke Fly.io:
+   ```bash
+   fly deploy --remote-only -a jembatan-112-api
+   ```
+3. Verifikasi ketersediaan dan koneksi database:
+   ```bash
+   curl -fsS https://jembatan-112-api.fly.dev/healthz
+   # Respons wajib: {"ok":true,"db":true}
+   ```
+4. Pantau log jika ada kendala runtime:
+   ```bash
+   fly logs -a jembatan-112-api --no-tail
+   ```
+
+### Alur pembaruan frontend (Vercel)
+
+Bila ada perubahan pada `apps/web/`:
+
+1. Jalankan build lokal untuk memastikan tidak ada kesalahan kompilasi/tipe:
+   ```bash
+   cd apps/web && npm run build
+   ```
+2. Deploy pembaruan ke Vercel via CLI atau integrasi dashboard Vercel:
+   ```bash
+   # Melalui Vercel CLI
+   npx vercel --prod
+   ```
+3. Buka URL produksi `https://jembatan-112-web.vercel.app` untuk memastikan rute dan aset statis terbarui.
+
+### Manajemen environment variables & secrets
+
+- **Backend:** Gunakan `fly secrets set KUNCI=NILAI -a jembatan-112-api`. Fly.io akan memperbarui container secara rolling update.
+- **Frontend:** Atur di dashboard Vercel (Project Settings > Environment Variables) untuk `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- **CORS:** Jika domain frontend berganti, pastikan secret `CORS_ORIGINS` di Fly.io diperbarui sesuai domain Vercel.
 
 ## Pengujian otomatis
 
