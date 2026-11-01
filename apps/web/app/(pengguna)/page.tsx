@@ -3,14 +3,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { INCIDENTS } from "@/lib/incidents";
+import { INCIDENTS, paintOf } from "@/lib/incidents";
 import { t } from "@/lib/copy";
-import { loadProfile, useGeo, vibrate } from "@/lib/geo";
-import { saveLocalProfile } from "@/lib/offline-store";
+import { hasPracticed, loadProfile, useGeo, vibrate } from "@/lib/geo";
+import { loadLocal, saveLocalProfile } from "@/lib/offline-store";
+import { deviceKey } from "@/lib/utils";
 import type { CreateCall, Incident } from "@/lib/protocol";
 import { IncidentTile } from "@/components/IncidentTile";
 import { SosHoldButton } from "@/components/SosHoldButton";
-import { GpsIcon } from "@/components/icons";
+import {
+  ChevronIcon, GpsIcon, IdCardIcon, MenuIcon, MessageIcon, MoonIcon, SchoolIcon, UserIcon, UsersIcon,
+} from "@/components/icons";
 
 interface CallCreated {
   call_id: string;
@@ -20,58 +23,81 @@ interface CallCreated {
   practice?: boolean;
 }
 
-function deviceKey(): string {
-  try {
-    let k = localStorage.getItem("j112.device_key");
-    if (!k) {
-      k = crypto.randomUUID();
-      localStorage.setItem("j112.device_key", k);
-    }
-    return k;
-  } catch {
-    return crypto.randomUUID();
-  }
+/** One line of the readiness panel: what is ready, or a link that fixes what is missing. */
+function ReadyRow({ ok, icon, text, fix, href }: { ok: boolean | null; icon: React.ReactNode; text: string; fix: string; href: string }) {
+  if (ok === false)
+    return (
+      <Link href={href} className="flex min-h-11 items-center gap-3 font-semibold">
+        <span className="text-[color:var(--color-sos)]">{icon}</span>
+        <span className="min-w-0 flex-1 truncate">{text}</span>
+        <span className="flex shrink-0 items-center text-[15px] font-extrabold underline underline-offset-4">
+          {fix}
+          <ChevronIcon size={18} />
+        </span>
+      </Link>
+    );
+  return (
+    <p className={`flex min-h-11 items-center gap-3 font-semibold ${ok === null ? "text-text-muted" : ""}`}>
+      {icon}
+      <span className="min-w-0 flex-1 truncate">{text}</span>
+    </p>
+  );
 }
 
 export default function BerandaPage() {
   const router = useRouter();
-  const { fix, error } = useGeo();
+  const { fix, error, perm, request: askGps } = useGeo(false);
   const [incident, setIncident] = useState<Incident | null>(null);
   const [practice, setPractice] = useState(true); // default latihan until profile says otherwise
   const [address, setAddress] = useState<string | null>(null); // null = not loaded yet, "" = none
-  const hasAddress = address === null ? null : address !== "";
+  const [name, setName] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<number | null>(null);
+  const [practiced, setPracticed] = useState(true);
+  const [silent, setSilent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [doubleTap, setDoubleTap] = useState(false);
-  const [silentNotice, setSilentNotice] = useState<string | null>(null);
-  const headerTimer = useRef<number | NodeJS.Timeout | null>(null);
-  const noticeTimer = useRef<number | NodeJS.Timeout | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const headerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // App shortcut / deep link: /?kejadian=kebakaran preselects the plate.
+    const k = new URLSearchParams(location.search).get("kejadian");
+    if (INCIDENTS.some((i) => i.id === k)) setIncident(k as Incident);
+    setSilent(document.documentElement.classList.contains("silent"));
+    setPracticed(hasPracticed());
     loadProfile().then((p) => {
-      if (!p) return;
-      setPractice(p.practice_mode !== false);
-      setAddress(typeof p.address === "string" ? p.address.trim() : "");
-      setDoubleTap(!!p.double_tap_sos);
+      setPractice(p?.practice_mode !== false);
+      setAddress(typeof p?.address === "string" ? p.address.trim() : "");
+      setName(typeof p?.display_name === "string" ? p.display_name.trim() : "");
+      setDoubleTap(!!p?.double_tap_sos);
     });
+    api<unknown[] | { contacts: unknown[] }>("/v1/me/contacts")
+      .then((r) => setContacts((Array.isArray(r) ? r : r.contacts).length))
+      .catch(() => loadLocal().then((l) => setContacts(l.contacts.length)));
     return () => {
       clearTimeout(headerTimer.current ?? undefined);
       clearTimeout(noticeTimer.current ?? undefined);
     };
   }, []);
 
-  const toggleSilent = useCallback(async () => {
-    const nextSilent = !document.documentElement.classList.contains("silent");
-    document.documentElement.classList.toggle("silent", nextSilent);
-    vibrate(50);
-    const msg = nextSilent ? "Mode senyap aktif" : "Mode senyap nonaktif";
-    setSilentNotice(msg);
+  const say = (msg: string) => {
+    setNotice(msg);
     clearTimeout(noticeTimer.current ?? undefined);
-    noticeTimer.current = setTimeout(() => setSilentNotice(null), 2500);
+    noticeTimer.current = setTimeout(() => setNotice(null), 2500);
+  };
+
+  const toggleSilent = useCallback(async () => {
+    const next = !document.documentElement.classList.contains("silent");
+    document.documentElement.classList.toggle("silent", next);
+    setSilent(next);
+    vibrate(50);
+    say(next ? "Mode senyap aktif: layar gelap, tanpa getar." : "Mode senyap mati.");
     try {
       const p = await loadProfile();
-      if (p) {
-        const updated = { ...p, silent_mode: nextSilent };
+      if (p && !p.local) {
+        const updated = { ...p, silent_mode: next };
         await api("/v1/me/profile", { method: "PUT", body: JSON.stringify(updated) });
         await saveLocalProfile(updated as Parameters<typeof saveLocalProfile>[0]);
       }
@@ -80,6 +106,7 @@ export default function BerandaPage() {
     }
   }, []);
 
+  // Hidden shortcut kept from the first build: hold the title 2 s to toggle silent mode without looking.
   const onHeaderPointerDown = useCallback(() => {
     clearTimeout(headerTimer.current ?? undefined);
     headerTimer.current = setTimeout(() => {
@@ -87,12 +114,10 @@ export default function BerandaPage() {
       toggleSilent();
     }, 2000);
   }, [toggleSilent]);
-
   const onHeaderPointerUp = useCallback(() => {
     clearTimeout(headerTimer.current ?? undefined);
     headerTimer.current = null;
   }, []);
-
 
   const start = useCallback(async () => {
     if (busy) return;
@@ -149,41 +174,53 @@ export default function BerandaPage() {
     }
   }, [busy, fix, incident, practice, router]);
 
+  const picked = incident ? paintOf(incident).label : null;
+  const where = fix
+    ? t("home.location.ok", { m: fix.accuracy_m })
+    : address
+      ? `Alamat: ${address}`
+      : perm === "denied"
+        ? "Izin lokasi ditolak"
+        : address === "" && error
+          ? "Lokasi belum ada"
+          : "Mencari lokasi GPS…";
+
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-5 pt-4 pb-6">
-      <div className="flex min-h-12 items-center justify-between">
-        {practice ? (
-          <Link
-            href="/pengaturan"
-            className="rounded-[6px] bg-signal px-2.5 py-0.5 text-[14px] leading-6 font-extrabold tracking-[0.06em] text-ink"
-            aria-label={`${t("practice.banner")}. Ubah di pengaturan.`}
-          >
-            LATIHAN
+    <main className="s-instant mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-2">
+      <div className="s-bar !px-0">
+        <div className="flex items-center gap-2">
+          <span className="s-word">J112</span>
+          {practice ? <span className="m-chip">Latihan</span> : <span className="m-chip m-chip--live">Simulasi</span>}
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={toggleSilent} aria-pressed={silent} aria-label="Mode senyap" className="m-icon-btn">
+            <MoonIcon size={22} />
+          </button>
+          <Link href="/pengaturan" className="m-icon-btn">
+            <MenuIcon size={22} />
+            Menu
           </Link>
-        ) : (
-          <span />
-        )}
-        <Link href="/pengaturan" aria-label="Pengaturan" className="flex min-h-12 min-w-12 items-center justify-end font-bold text-paint/85">
-          Atur
-        </Link>
+        </div>
       </div>
 
       <h1
         onPointerDown={onHeaderPointerDown}
         onPointerUp={onHeaderPointerUp}
         onPointerCancel={onHeaderPointerUp}
-        className="mt-2 mb-4 text-[34px] leading-[38px] font-extrabold tracking-[-0.02em] text-balance select-none cursor-pointer"
-        title="Tahan 2 detik untuk mode senyap"
+        className="s-display mt-1 text-[40px] leading-[42px] font-black tracking-[-0.035em] select-none"
       >
         {t("home.title")}
       </h1>
-      {silentNotice && (
-        <p role="status" aria-live="polite" className="mb-3 rounded-lg bg-asphalt-2 px-3 py-1.5 text-center text-sm font-semibold text-paint">
-          {silentNotice}
+      <p className="mt-1 mb-4 text-[16px] leading-6 text-text-muted">
+        {practice ? "Latihan: tidak menelepon 112 sungguhan." : "Tersambung ke konsol operator simulasi."}
+      </p>
+      {notice && (
+        <p role="status" className="m-band mb-2 px-4 py-2 text-[16px] font-bold">
+          {notice}
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Jenis kejadian (boleh dilewati)">
         {INCIDENTS.map((i) => (
           <IncidentTile
             key={i.id}
@@ -195,34 +232,54 @@ export default function BerandaPage() {
           />
         ))}
       </div>
+      <p className="mt-2 px-1 text-[15px] leading-5 text-text-muted" aria-live="polite">
+        {incident ? "Ketuk lagi untuk batal memilih." : "Ragu memilih? Langsung tahan SOS. Operator tetap ditelepon."}
+      </p>
 
-      {!fix && hasAddress === false ? (
-        <Link
-          href="/profil?baru=1"
-          aria-live="polite"
-          className="mt-4 flex min-h-14 items-center gap-3 rounded-[12px] bg-sos px-4 text-[18px] leading-6 font-bold text-white"
-        >
-          <GpsIcon size={24} />
-          {t("home.location.missing")}
-        </Link>
-      ) : (
-        <p
-          aria-live="polite"
-          className="mt-4 flex min-h-14 items-center gap-3 rounded-[12px] bg-asphalt-2 px-4 text-[17px] leading-6 font-bold"
-        >
-          <span
-            aria-hidden
-            className={`size-3 shrink-0 rounded-full ${fix ? "bg-done" : error ? "bg-paint-muted" : "animate-pulse bg-signal"}`}
-          />
-          <span className="min-w-0 truncate">
-            {fix ? t("home.location.ok", { m: fix.accuracy_m }) : address ? address : error ? t("home.location.none") : "Mencari lokasi…"}
-          </span>
-        </p>
+      {perm === "prompt" && !fix && (
+        <section aria-labelledby="gps-title" className="tone-mustard mt-2 flex items-center gap-3 px-4 py-3">
+          <GpsIcon size={26} />
+          <div className="min-w-0 flex-1">
+            <h2 id="gps-title" className="text-[17px] leading-6 font-extrabold">Lokasi belum diizinkan</h2>
+            <p className="text-[15px] leading-5">Petugas jadi tahu tempat Anda. Hanya dikirim saat SOS.</p>
+          </div>
+          <button type="button" onClick={askGps} className="m-btn m-btn--sm shrink-0 !px-4">Izinkan</button>
+        </section>
       )}
 
-      <div className="mt-auto pt-6">
-        {err && <p role="alert" className="mb-2 font-bold text-signal">{err}</p>}
-        <SosHoldButton disabled={busy} onComplete={start} doubleTap={doubleTap} />
+      <section aria-label="Kesiapan" aria-live="polite" className="m-surface mt-2 px-4 py-2 text-[17px] leading-6">
+        {!(perm === "prompt" && !fix) && (
+          <ReadyRow ok={address === null && !fix ? null : !!fix || !!address} icon={<GpsIcon size={22} />} text={where} fix="Isi alamat" href="/profil" />
+        )}
+        <ReadyRow ok={name === null ? null : !!name} icon={<UserIcon size={22} />} text={name ? `Nama: ${name}` : name === null ? "Memeriksa profil…" : "Nama belum diisi"} fix="Isi" href="/profil" />
+        <ReadyRow
+          ok={contacts === null ? null : contacts > 0}
+          icon={<UsersIcon size={22} />}
+          text={contacts ? `${contacts} kontak darurat siap dikabari` : contacts === null ? "Memeriksa kontak…" : "Kontak belum ada"}
+          fix="Tambah"
+          href="/kontak"
+        />
+      </section>
+
+      <nav aria-label="Aksi cepat" className="mt-2 grid grid-cols-3 gap-2">
+        <Link href="/kartu" className="m-icon-btn m-press !min-h-16 flex-col !gap-1 !py-2 text-[15px]">
+          <IdCardIcon size={24} />
+          Kartu darurat
+        </Link>
+        <Link href="/latihan" className="m-icon-btn m-press relative !min-h-16 flex-col !gap-1 !py-2 text-[15px]">
+          <SchoolIcon size={24} />
+          Coba latihan
+          {!practiced && <span className="absolute top-1.5 right-1.5 size-2.5 rounded-full bg-[color:var(--color-sos)]" aria-label="belum dicoba" role="img" />}
+        </Link>
+        <Link href={`/offline?kejadian=${incident ?? "umum"}`} className="m-icon-btn m-press !min-h-16 flex-col !gap-1 !py-2 text-[15px]">
+          <MessageIcon size={24} />
+          SMS darurat
+        </Link>
+      </nav>
+
+      <div className="s-dock mt-auto pt-4">
+        {err && <p role="alert" className="mb-2 font-bold text-[color:var(--color-sos)]">{err}</p>}
+        <SosHoldButton disabled={busy} onComplete={start} doubleTap={doubleTap} target={picked ?? "darurat umum"} />
       </div>
     </main>
   );

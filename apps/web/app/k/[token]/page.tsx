@@ -1,8 +1,9 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { IncidentIcon } from "@/components/icons";
-import { INCIDENTS } from "@/lib/incidents";
+import { GpsIcon, IncidentIcon } from "@/components/icons";
+import { RouteBoard, type Stop } from "@/components/RouteBoard";
+import { INCIDENTS, paintOf } from "@/lib/incidents";
 
 interface ActiveCall {
   incident: string;
@@ -22,6 +23,22 @@ function statusText(c: ActiveCall, name: string): string {
   return "Tersambung";
 }
 
+// The same route the user sees, from the fields this page already receives.
+function stopsOf(c: ActiveCall): Stop[] {
+  const connected = !["SIAGA", "MEMANGGIL", "FALLBACK"].includes(c.state) || !!c.dispatched_at;
+  const over = !!c.ended_at || c.state === "SELESAI";
+  return [
+    { label: connected ? "Tersambung ke 112" : "Memanggil 112", state: connected || over ? "done" : "current" },
+    { label: "Operator bertanya", state: c.dispatched_at || over ? "done" : connected ? "current" : "todo" },
+    { label: "Petugas berangkat", state: c.dispatched_at ? "done" : "todo" },
+  ];
+}
+
+function ago(iso: string, now: number): string {
+  const m = Math.max(0, Math.floor((now - Date.parse(iso)) / 60000));
+  return m < 1 ? "baru saja" : m < 60 ? `${m} menit lalu` : `${Math.floor(m / 60)} jam lalu`;
+}
+
 function b64ToBytes(s: string): Uint8Array<ArrayBuffer> {
   const pad = "=".repeat((4 - (s.length % 4)) % 4);
   const raw = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
@@ -34,6 +51,11 @@ export default function KontakPage({ params }: { params: Promise<{ token: string
   const [err, setErr] = useState("");
   const [push, setPush] = useState("");
   const [ios, setIos] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const i = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(i);
+  }, []);
 
   useEffect(() => {
     setIos(/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia("(display-mode: standalone)").matches);
@@ -103,40 +125,50 @@ export default function KontakPage({ params }: { params: Promise<{ token: string
   const inc = INCIDENTS.find((i) => i.id === c?.incident);
   const name = data?.user_display_name ?? "";
   return (
-    <main className="mx-auto min-h-dvh max-w-md space-y-4 p-6 text-[var(--color-text)]">
-      <h1 className="text-2xl font-bold">Jembatan 112</h1>
-      <p role="alert" className="text-[var(--color-sos)]">{err}</p>
-      {data && !c && <p className="text-lg">Belum ada kejadian dari {name}.</p>}
-      {c && (
-        <section aria-live="polite" className="space-y-3">
-          <div
-            className="flex items-center gap-4 rounded-2xl p-5 text-white"
-            style={{ background: `var(${inc?.colorVar ?? "--color-navy"})` }}
-          >
-            <IncidentIcon id={inc?.id ?? "umum"} size={40} />
-            <div>
-              <p className="text-2xl font-bold">{inc?.label ?? "Darurat"}</p>
-              <p>{name} meminta bantuan</p>
+    <main className="mx-auto min-h-dvh w-full max-w-[480px] px-2 text-[var(--color-text)]">
+      <div className="s-bar">
+        <span className="s-word">J112</span>
+        <span className="m-label !mb-0">Status keluarga</span>
+      </div>
+      <div className="grid gap-2 pb-24">
+        {err && <p role="alert" className="s-panel m-surface font-semibold text-[var(--color-sos)]">{err}</p>}
+        {data && !c && <p className="s-panel m-surface text-lg">Belum ada kejadian dari {name}.</p>}
+        {c && (
+          <section aria-live="polite" className="grid gap-2">
+            <div className="s-panel flex items-center gap-4" style={{ background: paintOf(inc?.id).bg, color: paintOf(inc?.id).fg }}>
+              <IncidentIcon id={inc?.id ?? "umum"} size={44} />
+              <div>
+                <p className="s-display text-[34px] leading-9 font-black tracking-[-0.03em]">{inc?.label ?? "Darurat"}</p>
+                <p className="font-semibold">{name} meminta bantuan</p>
+              </div>
             </div>
-          </div>
-          {c.sos_confirmed_at && <p className="text-[var(--color-text-muted)]">{new Date(c.sos_confirmed_at).toLocaleTimeString("id-ID")}</p>}
-          <p className="text-xl font-bold">{statusText(c, name)}</p>
-          {c.location && (
-            <p>
-              {c.location.lat.toFixed(5)}, {c.location.lng.toFixed(5)}{" "}
-              <a href={c.location.maps_url} target="_blank" rel="noreferrer" className="font-bold underline text-[var(--color-accent)]">Buka di peta</a>
-            </p>
-          )}
-          <a href="tel:112" className="flex min-h-14 items-center justify-center rounded-xl bg-[var(--color-sos)] text-lg font-bold text-white">Telepon 112</a>
-        </section>
-      )}
-      {data && (
-        <section className="space-y-2 rounded-xl bg-[var(--color-surface)] p-4">
-          {ios && <p className="text-[var(--color-warning)]">Tambahkan ke Layar Utama agar notifikasi bisa muncul.</p>}
-          <button onClick={enablePush} className="min-h-12 w-full rounded-xl border-[3px] border-paint/60 font-bold text-paint">Izinkan notifikasi</button>
-          <p role="status">{push}</p>
-        </section>
-      )}
+            <div className="s-panel m-surface space-y-4" style={{ "--i": 1 } as React.CSSProperties}>
+              {c.sos_confirmed_at && (
+                <p className="m-label">
+                  SOS {new Date(c.sos_confirmed_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} · {ago(c.sos_confirmed_at, now)}
+                </p>
+              )}
+              <p className={`s-h2 ${c.state === "FALLBACK" ? "text-[color:var(--color-sos)]" : ""}`}>{statusText(c, name)}</p>
+              {c.state !== "FALLBACK" && <RouteBoard stops={stopsOf(c)} paint={paintOf(inc?.id)} />}
+            </div>
+            {c.location && (
+              <a href={c.location.maps_url} target="_blank" rel="noreferrer" className="m-btn w-full">
+                <GpsIcon size={22} />
+                Buka lokasi di peta
+                <span className="text-[15px] font-normal opacity-80">±{Math.round(c.location.accuracy_m)} m</span>
+              </a>
+            )}
+            <a href="tel:112" className="m-btn m-btn--sos w-full">Telepon 112</a>
+          </section>
+        )}
+        {data && (
+          <section className="s-panel m-surface space-y-3" style={{ "--i": 2 } as React.CSSProperties}>
+            {ios && <p className="font-semibold text-[var(--color-warning)]">Tambahkan ke Layar Utama agar notifikasi bisa muncul.</p>}
+            <button onClick={enablePush} className="m-btn m-btn--line w-full">Izinkan notifikasi</button>
+            {push && <p role="status">{push}</p>}
+          </section>
+        )}
+      </div>
     </main>
   );
 }

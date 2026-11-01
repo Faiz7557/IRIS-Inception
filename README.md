@@ -345,7 +345,6 @@ Bila ada perubahan pada `apps/web/`:
 - **Backend:** Gunakan `fly secrets set KUNCI=NILAI -a jembatan-112-api`. Fly.io akan memperbarui container secara rolling update.
 - **Frontend:** Atur di dashboard Vercel (Project Settings > Environment Variables) untuk `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - **CORS:** Jika domain frontend berganti, pastikan secret `CORS_ORIGINS` di Fly.io diperbarui sesuai domain Vercel.
-
 ## Pengujian otomatis
 
 ```bash

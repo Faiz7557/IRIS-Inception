@@ -12,9 +12,9 @@ import { CallHeader, type CallPhase } from "@/components/CallHeader";
 import { QuestionCard, type AnswerStatus } from "@/components/QuestionCard";
 import { ShortInputSheet } from "@/components/ShortInputSheet";
 import { RouteBoard, type Stop } from "@/components/RouteBoard";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { CheckIcon, CloseIcon, IncidentIcon, SosIcon, WaveIcon } from "@/components/icons";
+import { CheckIcon, GpsIcon, IdCardIcon, SosIcon, WaveIcon } from "@/components/icons";
+import { ShowCard } from "@/components/ShowCard";
 
 const CSS = `
 .call-flash{position:fixed;inset:0;border:8px solid var(--color-primary);pointer-events:none;z-index:60;animation:jflash 300ms ease-out forwards}
@@ -28,8 +28,8 @@ const CSS = `
 /** The opener is ~35 words of spoken Indonesian: available, but folded so a panicked user sees one short line. */
 function OpenerText({ text }: { text: string }) {
   return (
-    <details className="rounded-[12px] bg-[color:var(--color-surface)] p-3 text-left">
-      <summary className="min-h-[44px] cursor-pointer content-center text-[16px] font-bold text-[color:var(--color-accent)]">
+    <details className="m-surface px-[18px] py-3 text-left">
+      <summary className="min-h-[44px] cursor-pointer content-center text-[16px] font-semibold underline underline-offset-4">
         Lihat pesan untuk operator
       </summary>
       <p className="mt-2 leading-7">{text}</p>
@@ -78,13 +78,18 @@ export default function PanggilanPage() {
   const [confirm, setConfirm] = useState(false);
   const [showOfficer, setShowOfficer] = useState(false);
   const [name, setName] = useState("");
-  const [hasAddress, setHasAddress] = useState(false);
+  const [address, setAddress] = useState("");
+  const hasAddress = address !== "";
   const [answeredN, setAnsweredN] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
 
   const sock = useRef<CallSocket | null>(null);
   const cardRef = useRef<HTMLElement>(null);
   const answered = useRef(0);
+  // Question + answer pairs for the summary page; an answer is logged only once the operator heard it.
+  const log = useRef<{ q: string; a: string }[]>([]);
+  const pendingAns = useRef<{ q: string; a: string } | null>(null);
+  const dispatchedRef = useRef(false);
   const cardIdRef = useRef<string | null>(null);
 
   // Session written by the home page right after POST /v1/calls.
@@ -100,7 +105,10 @@ export default function PanggilanPage() {
   const end = useCallback(
     (d: EndedData) => {
       try {
-        sessionStorage.setItem(`j112.end.${id}`, JSON.stringify({ ...d, answered: answered.current, practice: sess?.practice }));
+        sessionStorage.setItem(`j112.end.${id}`, JSON.stringify({
+          ...d, answered: answered.current, practice: sess?.practice, incident: sess?.incident,
+          dispatched: dispatchedRef.current, log: log.current,
+        }));
       } catch {
         /* summary page copes without it */
       }
@@ -152,8 +160,11 @@ export default function PanggilanPage() {
           setAns("sent");
           answered.current += 1;
           setAnsweredN(answered.current);
+          if (pendingAns.current) log.current.push(pendingAns.current);
+          pendingAns.current = null;
           vibrate(50);
         } else {
+          pendingAns.current = null;
           setChosen(null);
           setAns("idle");
           setAnsErr("Gagal dibacakan. Coba lagi.");
@@ -162,6 +173,7 @@ export default function PanggilanPage() {
       s.on("degradation", (m) => setDeg(m.data.level)),
       s.on("dispatch", (m) => {
         setDispatched(true);
+        dispatchedRef.current = true;
         setTl((x) => ({ ...x, dispatched_at: m.data.dispatched_at }));
       }),
       s.on("timeline", (m) => setTl(m.data)),
@@ -207,7 +219,7 @@ export default function PanggilanPage() {
   useEffect(() => {
     loadProfile().then((p) => {
       if (p?.display_name) setName(p.display_name);
-      setHasAddress(typeof p?.address === "string" && p.address.trim() !== "");
+      setAddress(typeof p?.address === "string" ? p.address.trim() : "");
     });
     api<Contact[] | { contacts: Contact[] }>("/v1/me/contacts")
       .then((r) => setContacts(Array.isArray(r) ? r : r.contacts))
@@ -224,16 +236,19 @@ export default function PanggilanPage() {
       if (!f) return setAnsErr("Lokasi belum tersedia. Pilih jawaban lain.");
       setChosen(o.index);
       setAns("sending");
+      pendingAns.current = { q: card.question, a: `Lokasi GPS (akurat ${f.accuracy_m} m)` };
       return sock.current?.send("gps", { card_id: card.card_id, option_index: o.index, lat: f.lat, lng: f.lng, accuracy_m: f.accuracy_m });
     }
     setChosen(o.index);
     setAns("sending");
+    pendingAns.current = { q: card.question, a: o.label };
     sock.current?.send("tap", { card_id: card.card_id, option_index: o.index });
   };
   const sendText = (text: string) => {
     if (!card || !sheet) return;
     setChosen(sheet.index);
     setAns("sending");
+    pendingAns.current = { q: card.question, a: text };
     setSheet(null);
     sock.current?.send("text", { card_id: card.card_id, option_index: sheet.index, text });
   };
@@ -247,9 +262,9 @@ export default function PanggilanPage() {
   if (sess === undefined) return null;
   if (sess === null)
     return (
-      <main className="mx-auto max-w-[480px] space-y-4 p-4">
-        <h1 className="text-[24px] font-bold">Sesi panggilan tidak ditemukan</h1>
-        <Link href="/" className="flex min-h-[56px] items-center justify-center rounded-[12px] bg-[color:var(--color-primary)] font-extrabold text-ink">
+      <main className="s-page">
+        <h1 className="s-panel tone-ink s-title">Sesi panggilan tidak ditemukan</h1>
+        <Link href="/" className="m-btn w-full">
           Kembali ke beranda
         </Link>
       </main>
@@ -286,76 +301,98 @@ export default function PanggilanPage() {
   let view: React.ReactNode;
   if (fb) {
     view = (
-      <section aria-labelledby="fb-title" className="space-y-4">
-        <div className="flex items-center gap-4 rounded-[14px] bg-sos p-4 text-white">
+      <section aria-labelledby="fb-title" className="space-y-2">
+        <div className="s-panel flex items-center gap-4 bg-sos text-white">
           <SosIcon size={40} />
-          <h2 id="fb-title" className="text-[26px] leading-8 font-extrabold tracking-[-0.01em]">{t("fallback.title")}</h2>
+          <h2 id="fb-title" className="s-h2">{t("fallback.title")}</h2>
         </div>
         {fb.contacts_notified > 0 && (
-          <p className="flex items-center gap-3 rounded-[12px] bg-asphalt-2 p-4 text-[18px] leading-7 font-bold">
-            <span className="text-done"><CheckIcon size={24} /></span>
+          <p className="s-panel m-surface flex items-center gap-3 text-[18px] leading-7 font-semibold">
+            <CheckIcon size={24} />
             {t("fallback.contacts_notified")}
           </p>
         )}
         {fb.can_retry ? (
-          <Button size="xl" className="w-full" onClick={() => sock.current?.send("retry", {})}>{t("fallback.retry")}</Button>
+          <button type="button" className="m-btn w-full" onClick={() => sock.current?.send("retry", {})}>{t("fallback.retry")}</button>
         ) : (
           <>
-            <p className="text-[18px] font-bold">Hubungi orang di sekitar Anda.</p>
-            <Button size="xl" className="w-full" onClick={() => setShowOfficer(true)}>Tunjukkan layar ke orang lain</Button>
+            <p className="s-panel m-surface text-[18px] font-semibold">Hubungi orang di sekitar Anda.</p>
+            <button type="button" className="m-btn w-full" onClick={() => setShowOfficer(true)}>Tunjukkan layar ke orang lain</button>
           </>
         )}
-        <div className="space-y-2">
-          {(contacts.length ? contacts : [{ name: "", phone: "" }]).map((c, i) => (
-            <Button key={i} asChild variant="outline" size="lg" className="w-full">
-              <a href={smsHref(c.phone, fb.sms_text)}>{t("fallback.sms")}{c.name ? `: ${c.name}` : ""}</a>
-            </Button>
-          ))}
-        </div>
+        {(contacts.length ? contacts : [{ name: "", phone: "" }]).map((c, i) => (
+          <a key={i} href={smsHref(c.phone, fb.sms_text)} className="m-btn m-btn--line w-full">
+            {t("fallback.sms")}{c.name ? `: ${c.name}` : ""}
+          </a>
+        ))}
       </section>
     );
   } else if (dispatched) {
     view = (
-      <section className="space-y-5" aria-labelledby="help-title">
-        <div className="flex items-center gap-4 rounded-[14px] p-4" style={{ background: "var(--done)", color: "var(--ink-dark)" }}>
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-ink text-done"><CheckIcon size={34} /></span>
-          <h2 id="help-title" className="text-[28px] leading-8 font-extrabold tracking-[-0.01em]">{t("help.title")}</h2>
+      <section className="space-y-2" aria-labelledby="help-title">
+        <div className="s-panel tone-sage flex items-center gap-4">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-ink text-sill-sage"><CheckIcon size={34} /></span>
+          <h2 id="help-title" className="s-title !text-[40px]">{t("help.title")}</h2>
         </div>
-        <RouteBoard stops={stops} paint={paint} />
-        <p className="rounded-[12px] bg-asphalt-2 p-4 text-[18px] leading-7 font-bold">{t("help.stay_safe")}</p>
-        <Button size="xl" className="w-full" onClick={() => setShowOfficer(true)}>Tunjukkan ke petugas</Button>
+        <div className="s-panel m-surface"><RouteBoard stops={stops} paint={paint} /></div>
+        <p className="s-panel m-surface text-[18px] leading-7 font-semibold">{t("help.stay_safe")}</p>
+        <button type="button" className="m-btn w-full" onClick={() => setShowOfficer(true)}>Tunjukkan ke petugas</button>
       </section>
     );
   } else if (card) {
     view = (
       <>
         <RouteBoard stops={stops} paint={paint} compact />
-        {ans === "sent" && waiting && <p className="text-paint-muted">Menyiapkan pertanyaan…</p>}
+        {ans === "sent" && waiting && <p className="px-2 text-text-muted">Menyiapkan pertanyaan…</p>}
         <QuestionCard
           ref={cardRef} card={card} chosen={chosen} status={ans} gpsAccuracy={fix?.accuracy_m ?? null}
           pendingAfter={Math.max(0, total - idx)} silentDot={isSilent()} onOption={choose} onRepeat={repeat}
         />
-        {ansErr && <p role="alert" className="font-bold text-signal">{ansErr}</p>}
+        {ansErr && <p role="alert" className="s-panel tone-mustard font-semibold">{ansErr}</p>}
         {infos.map((x, i) => (
-          <p key={i} className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6">{x}</p>
+          <p key={i} className="m-surface px-[18px] py-3 text-[16px] leading-6">{x}</p>
         ))}
       </>
     );
   } else {
     // Waiting stages (dialing, opener, listening) share one layout: the route is the screen.
     const speaking = startedAt !== null && (st.state === "PEMBUKA" || !!opener?.speaking);
+    const gpsGood = !!fix && fix.accuracy_m <= 100;
     view = (
-      <section className="space-y-5" aria-live="polite">
+      <section className="space-y-2" aria-live="polite">
         <h1 className="sr-only">{!startedAt ? t("call.dialing") : speaking ? t("call.opener.title") : "Mendengarkan operator"}</h1>
-        <RouteBoard stops={stops} paint={paint} />
-        <p className="flex min-h-14 items-center gap-3 rounded-[12px] bg-asphalt-2 px-4 text-[18px] leading-6 font-bold">
-          {startedAt && opSpeaking ? <WaveIcon size={24} /> : <span aria-hidden className="size-3 shrink-0 animate-pulse rounded-full bg-signal" />}
+        <div className="s-panel m-surface"><RouteBoard stops={stops} paint={paint} /></div>
+        <p className="s-panel tone-ink flex items-center gap-3 !py-4 text-[18px] leading-6 font-semibold">
+          {startedAt && opSpeaking ? <WaveIcon size={24} /> : <span aria-hidden className="size-3 shrink-0 animate-pulse rounded-full bg-sill-mustard" />}
           {startedAt && opSpeaking ? t("call.operator_speaking") : waiting ? "Menyiapkan pertanyaan…" : t("call.wait")}
         </p>
-        {partial && <p className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6 text-paint-muted">{partial}</p>}
+        {partial && <p className="m-surface px-[18px] py-3 text-[16px] leading-6 text-text-muted">{partial}</p>}
         {infos.map((x, i) => (
-          <p key={i} className="rounded-[12px] bg-asphalt-2 p-3 text-[16px] leading-6">{x}</p>
+          <p key={i} className="m-surface px-[18px] py-3 text-[16px] leading-6">{x}</p>
         ))}
+        {/* What the opener carries, as facts the user can check at a glance (product principle 3). */}
+        <section aria-labelledby="knows-title" className="s-panel m-surface !py-4">
+          <h2 id="knows-title" className="m-label">{openerDone ? "Sudah dibacakan ke operator" : "Akan dibacakan ke operator"}</h2>
+          <ul className="space-y-2 text-[18px] leading-6 font-semibold">
+            {[
+              { ok: true, text: `Kejadian: ${incidentLabel}` },
+              // Mirrors opener.py: GPS is read out only at ≤ 100 m, otherwise the profile address.
+              {
+                ok: gpsGood || hasAddress,
+                text: gpsGood ? `Lokasi GPS, akurat ${fix!.accuracy_m} m` : hasAddress ? `Alamat: ${address}` : "Lokasi belum ada. Operator akan bertanya.",
+              },
+              ...(name ? [{ ok: true, text: `Nama: ${name}` }] : []),
+              { ok: true, text: "Anda tuli dan menjawab lewat tombol" },
+            ].map((x) => (
+              <li key={x.text} className="flex items-start gap-3">
+                <span className={`mt-0.5 shrink-0 ${x.ok ? (openerDone ? "text-[color:var(--color-success)]" : "text-text-muted") : "text-[color:var(--color-sos)]"}`}>
+                  {x.ok ? <CheckIcon size={22} /> : <GpsIcon size={22} />}
+                </span>
+                <span className="min-w-0">{x.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
         <OpenerText text={opener?.text ?? (sess.opener || `Panggilan relay otomatis untuk ${incidentLabel}.`)} />
       </section>
     );
@@ -365,19 +402,33 @@ export default function PanggilanPage() {
     <div className="mx-auto min-h-dvh w-full max-w-[480px]">
       <style>{CSS}</style>
       {flash > 0 && <div key={flash} className="call-flash" aria-hidden />}
-      <CallHeader phase={phase} incident={sess.incident} startedAt={startedAt} practice={sess.practice} onCancel={() => setConfirm(true)} />
-      {conn === "reconnecting" && <p role="status" className="bg-warning-bg px-4 py-1.5 text-[16px] font-bold text-signal">Menyambung ulang…</p>}
-      {authFailed && (
-        <div role="alert" className="space-y-3 bg-warning-bg px-4 py-3">
-          <p className="text-[18px] font-bold text-signal">Sesi panggilan tidak bisa diverifikasi. Silakan mulai ulang dari beranda.</p>
-          <Button asChild size="lg" className="w-full"><Link href="/">Kembali ke beranda</Link></Button>
-        </div>
-      )}
-      {conn === "closed" && !authFailed && <p role="alert" className="bg-warning-bg px-4 py-1.5 text-[16px] font-bold text-signal">Sambungan terputus.</p>}
-      {(deg === 2 || deg === 3) && (
-        <p className="px-4 pt-2 text-[16px] font-bold text-signal">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
-      )}
-      <main className="space-y-4 px-4 pt-4 pb-8">{view}</main>
+      <CallHeader phase={phase} incident={sess.incident} startedAt={startedAt} practice={sess.practice} />
+      <div className="space-y-2 px-2 pt-2 empty:hidden">
+        {conn === "reconnecting" && <p role="status" className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">Menyambung ulang…</p>}
+        {authFailed && (
+          <div role="alert" className="tone-mustard space-y-3 px-[18px] py-4">
+            <p className="text-[18px] font-semibold">Sesi panggilan tidak bisa diverifikasi. Silakan mulai ulang dari beranda.</p>
+            <Link href="/" className="m-btn w-full">Kembali ke beranda</Link>
+          </div>
+        )}
+        {conn === "closed" && !authFailed && <p role="alert" className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">Sambungan terputus.</p>}
+        {(deg === 2 || deg === 3) && (
+          <p className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
+        )}
+      </div>
+      <main className="s-instant space-y-2 px-2 pt-2 pb-8">
+        {view}
+        {/* Someone may walk up mid-call: the officer card is one tap away on every stage, not only after dispatch. */}
+        {!fb && !dispatched && (
+          <button type="button" onClick={() => setShowOfficer(true)} className="m-icon-btn w-full !min-h-14">
+            <IdCardIcon size={22} />
+            Tunjukkan ke orang di sekitar
+          </button>
+        )}
+        <button type="button" onClick={() => setConfirm(true)} className="m-btn m-btn--danger mt-6 w-full">
+          {t("call.cancel")} panggilan
+        </button>
+      </main>
 
       {sheet && (
         <ShortInputSheet
@@ -388,28 +439,24 @@ export default function PanggilanPage() {
       )}
 
       <Dialog open={confirm} onOpenChange={setConfirm}>
-        <DialogContent role="alertdialog" showCloseButton={false} className="max-w-[400px] rounded-[16px] bg-asphalt-2 p-5">
-          <DialogTitle className="text-[26px] leading-8 font-extrabold">{t("call.cancel.confirm")}</DialogTitle>
-          <DialogDescription className="text-[17px] leading-6 text-paint-muted">Operator 112 tidak bisa lagi bertanya kepada Anda.</DialogDescription>
-          <div className="mt-2 flex gap-3">
-            <Button autoFocus size="lg" variant="outline" className="flex-1" onClick={() => setConfirm(false)}>Tidak</Button>
-            <Button size="lg" variant="sos" className="flex-1" onClick={cancel}>Ya, batalkan</Button>
+        <DialogContent role="alertdialog" showCloseButton={false} className="max-w-[400px] rounded-none border-0 bg-surface p-[18px] text-text">
+          <DialogTitle className="s-h2">{t("call.cancel.confirm")}</DialogTitle>
+          <DialogDescription className="text-[17px] leading-6 text-text-muted">Operator 112 tidak bisa lagi bertanya kepada Anda.</DialogDescription>
+          <div className="mt-2 flex gap-2">
+            <button type="button" autoFocus className="m-btn m-btn--line flex-1" onClick={() => setConfirm(false)}>Tidak</button>
+            <button type="button" className="m-btn m-btn--sos flex-1" onClick={cancel}>Ya, batalkan</button>
           </div>
         </DialogContent>
       </Dialog>
 
       {showOfficer && (
-        <div
-          role="dialog" aria-modal="true" aria-label="Ringkasan untuk petugas"
-          style={{ background: paint.bg, color: paint.fg }}
-          className="fixed inset-0 z-50 flex flex-col justify-center gap-5 p-7"
-        >
-          <button type="button" onClick={() => setShowOfficer(false)} aria-label="Tutup" className="absolute top-3 right-3 flex size-14 items-center justify-center"><CloseIcon size={34} /></button>
-          <IncidentIcon id={sess.incident} size={72} />
-          <p className="text-[44px] leading-[48px] font-extrabold tracking-[-0.02em]">Saya tuli. Tolong bantu saya.</p>
-          <p className="text-[30px] leading-9 font-bold">{incidentLabel}</p>
-          {name && <p className="text-[24px] leading-8">Nama: {name}</p>}
-        </div>
+        <ShowCard
+          title="Saya tuli. Tolong bantu saya."
+          lines={[incidentLabel, ...(name ? [`Nama: ${name}`] : [])]}
+          incident={sess.incident}
+          paint={paint}
+          onClose={() => setShowOfficer(false)}
+        />
       )}
     </div>
   );

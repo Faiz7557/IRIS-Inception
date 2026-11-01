@@ -3,12 +3,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
-
-function deviceKey(): string {
-  let k = localStorage.getItem("j112_device_key");
-  if (!k) { k = crypto.randomUUID(); localStorage.setItem("j112_device_key", k); }
-  return k;
-}
+import { PageHead } from "@/components/PageHead";
+import { deviceKey } from "@/lib/utils";
 
 export default function Verifikasi() {
   const r = useRouter();
@@ -59,21 +55,36 @@ export default function Verifikasi() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md p-6 text-[var(--color-text)]">
-      <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">Masukkan kode</h1>
-      <p className="mt-2 text-[var(--color-text-muted)]">Kode 6 digit dikirim ke {phone}.</p>
-      <input
-        value={code} onChange={(e) => onChange(e.target.value)} onPaste={(e) => { e.preventDefault(); onChange(e.clipboardData.getData("text")); }}
-        inputMode="numeric" autoComplete="one-time-code" maxLength={6} aria-label="Kode 6 digit" disabled={busy}
-        className="mt-6 min-h-16 w-full rounded-xl border-[3px] border-paint-muted/50 bg-asphalt-2 focus:border-signal text-center font-mono text-3xl tracking-[0.5em]"
-      />
-      <p role="alert" className="mt-3 text-[var(--color-sos)]">{err}</p>
-      <button
-        onClick={resend} disabled={wait > 0}
-        className="mt-4 min-h-12 w-full rounded-xl border-[3px] border-paint/60 font-bold text-paint disabled:opacity-50"
-      >
-        {wait > 0 ? `Kirim ulang kode (${wait} dtk)` : "Kirim ulang kode"}
-      </button>
+    <main className="min-h-dvh text-[var(--color-text)]">
+      <PageHead title="Masukkan kode" lead={`Kode 6 digit dikirim ke ${phone}.`} back="/masuk" tone="violet" />
+      <div className="s-page">
+        <div className="s-panel m-surface space-y-4" style={{ "--i": 1 } as React.CSSProperties}>
+          {/* Six boxes drawn over one real input: SMS autofill, paste and screen readers keep working. */}
+          <div className="relative grid grid-cols-6 gap-2">
+            {Array.from({ length: 6 }, (_, i) => (
+              <span
+                key={i}
+                aria-hidden
+                className={`flex h-16 items-center justify-center font-mono text-[30px] font-bold ${
+                  i === code.length && !busy ? "shadow-[inset_0_0_0_4px_var(--color-focus)]" : "shadow-[inset_0_0_0_2px_currentColor]"
+                } ${code[i] ? "" : "opacity-60"}`}
+              >
+                {code[i] ?? ""}
+              </span>
+            ))}
+            <input
+              value={code} onChange={(e) => onChange(e.target.value)} onPaste={(e) => { e.preventDefault(); onChange(e.clipboardData.getData("text")); }}
+              inputMode="numeric" autoComplete="one-time-code" maxLength={6} aria-label="Kode 6 digit" disabled={busy} autoFocus
+              className="absolute inset-0 h-full w-full cursor-text opacity-0"
+            />
+          </div>
+          {busy && <p role="status" className="text-text-muted">Memeriksa kode…</p>}
+          {err && <p role="alert" className="font-semibold text-[var(--color-sos)]">{err}</p>}
+          <button onClick={resend} disabled={wait > 0} className="m-btn m-btn--line w-full">
+            {wait > 0 ? `Kirim ulang kode (${wait} dtk)` : "Kirim ulang kode"}
+          </button>
+        </div>
+      </div>
     </main>
   );
 }

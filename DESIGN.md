@@ -96,3 +96,17 @@ Layout at 1280–1600: asphalt top bar (`ConsoleBar`: name, SIMULASI chip, conne
 - Right 380px: a phone-frame preview of the user's current card in the night register, failure simulation L1–L3 as 56px toggles, codec switch, mic level bar, simulated SMS.
 
 Below 1180px the right column drops under the other two; below 860px everything stacks.
+
+## User side, November 2026 pass (Sill register)
+
+The user screens now follow the Sill panels in `app/globals.css` (light default, dark in Menu or forced by silent mode); the Trayek tokens above remain for the console. Body font is Atkinson Hyperlegible Next, headings Gabarito.
+
+- Home: mode chip (LATIHAN / SIMULASI) and a one-line mode sentence, explicit silent toggle (the 2 s title hold still works), a readiness panel (location, name, contacts, each with a fix link), quick actions (Kartu darurat, Coba latihan, SMS darurat), and the SOS bar in a sticky bottom dock that names the picked incident. No entrance animation on emergency surfaces (`.s-instant`).
+- `/kartu`: officer card from the profile (local copy when offline), "papan tulis" quick phrases and own text shown full screen (`ShowCard`, with a 180° flip for the person opposite), contacts with call/SMS.
+- `/latihan`: four sample cards (ya_tidak, lokasi, angka, instruksi) on the real `CallHeader`, `RouteBoard` and `QuestionCard`; nothing leaves the phone. Sets `j112.practiced`.
+- Menu (`/pengaturan`): grouped rows (`.m-row`), real switches (`.m-switch`), "Teks besar" applies at once (`html.large-text`, zoom 1.15), sign-out.
+- New classes: `.m-chip`, `.m-icon-btn`, `.m-row`, `.m-switch`, `.s-dock`, `.m-press`.
+- Resilience: profile reads fall back to the IndexedDB copy after 4 s; profile saves write locally first. `/kartu` and `/latihan` work without a session.
+- PWA shortcuts: Kebakaran, Sakit, Kecelakaan (`/?kejadian=…` preselects the plate) and Kartu darurat.
+- `/mulai`: three onboarding steps, each with a miniature of the real screen, then a ready screen (prototype notice, FAQ) ending in "Coba latihan dulu" or "Masuk dengan nomor ponsel". The landing-page CSS is gone.
+- Console: one-click operator questions per incident above the input, "Tutup panggilan" needs a second click within 4 s, the queue shows how long each call has waited (red from 20 s), and the phone preview uses the Sill look of the user app.

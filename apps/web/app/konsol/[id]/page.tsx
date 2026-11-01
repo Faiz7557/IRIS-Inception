@@ -20,6 +20,17 @@ function median(xs: number[]) { if (!xs.length) return null; const s = [...xs].s
 
 const QA_STATES: CallState[] = ["MENDENGAR", "MENYEDERHANAKAN", "MENUNGGU_JAWABAN", "MEMBACAKAN"];
 
+// One-click operator lines for the demo: the usual questions per incident, sent as operator_text.
+const QUICK: Record<string, string[]> = {
+  kebakaran: ["Apakah api masih menyala?", "Ada orang terjebak di dalam?"],
+  kecelakaan: ["Berapa orang terluka?", "Apakah korban sadar?"],
+  sakit: ["Apakah pasien sadar?", "Apakah pasien masih bernapas?"],
+  kejahatan: ["Apakah pelaku masih di sana?", "Apakah pelaku membawa senjata?"],
+  kdrt: ["Apakah pelaku masih di dekat Anda?", "Bisakah Anda pindah ke tempat aman?"],
+  bencana: ["Bencana apa yang terjadi?", "Ada orang tertimbun?"],
+};
+const QUICK_COMMON = ["Di mana lokasi Anda sekarang?", "Ada yang terluka?", "Tetap di tempat, petugas sedang menuju lokasi."];
+
 /** One latency readout: last value large, median and the paper's target beneath, coloured against the target. */
 function Readout({ name, what, values, target, warn }: { name: string; what: string; values: number[]; target: number; warn: number }) {
   const last = values.length ? values[values.length - 1] : null;
@@ -59,6 +70,7 @@ export default function ConsoleCall() {
   const [error, setError] = useState("");
   const [forces, setForces] = useState<ForceDegradationData>({ llm: false, stt: false, tts: false });
   const [dispatched, setDispatched] = useState(false);
+  const [confirmHang, setConfirmHang] = useState(false);
   const socket = useRef<WebSocket | null>(null);
   const player = useRef<PcmPlayer | null>(null);
   const active = useRef(false);
@@ -173,6 +185,16 @@ export default function ConsoleCall() {
     { label: "Petugas dikirim", state: dispatched ? "done" : "todo" },
   ];
   const sendText = () => { if (text.trim() && send({ type: "operator_text", data: { text: text.trim() } })) setText(""); };
+  const sendQuick = (line: string) => send({ type: "operator_text", data: { text: line } });
+  // Hang-up ends the call for good: the first click arms it for 4 s, the second one hangs up.
+  const hangup = () => {
+    if (!confirmHang) {
+      setConfirmHang(true);
+      window.setTimeout(() => setConfirmHang(false), 4000);
+      return;
+    }
+    if (send({ type: "hangup", data: {} })) { active.current = false; stopMic(); router.push("/konsol"); }
+  };
   const clock = `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
   const panel = "rounded-[16px] bg-[var(--panel)] shadow-[0_8px_24px_rgb(21_23_27/0.06)]";
   const inkBtn = "bg-ink text-paint hover:bg-[#2b2f37]";
@@ -205,8 +227,8 @@ export default function ConsoleCall() {
           <Button size="xl" className="w-full bg-[var(--done-paper)] text-white hover:bg-[#178244]" disabled={!live || dispatched} onClick={() => { if (send({ type: "dispatch", data: {} })) setDispatched(true); }}>
             {dispatched ? "Petugas sudah dikirim" : "Petugas dikirim"}
           </Button>
-          <Button size="lg" variant="sos" className="w-full" disabled={!live} onClick={() => { if (send({ type: "hangup", data: {} })) { active.current = false; stopMic(); router.push("/konsol"); } }}>
-            Tutup panggilan
+          <Button size="lg" variant="sos" className="w-full" disabled={!live} onClick={hangup} aria-live="polite">
+            {confirmHang ? "Klik lagi untuk menutup" : "Tutup panggilan"}
           </Button>
           {!answered && (
             <Button size="lg" variant="outline" className={`w-full ${inkOutline}`} disabled={!connected || state === "SELESAI"} onClick={() => { if (send({ type: "reject", data: {} })) router.push("/konsol"); }}>
@@ -241,7 +263,20 @@ export default function ConsoleCall() {
             })}
             <div ref={logEnd} />
           </div>
-          <form className="flex gap-3 border-t-2 border-[var(--rule)] p-4" onSubmit={(e) => { e.preventDefault(); sendText(); }}>
+          <div className="flex flex-wrap gap-2 border-t-2 border-[var(--rule)] px-4 pt-3" aria-label="Pertanyaan cepat">
+            {[...(QUICK[incident] ?? []), ...QUICK_COMMON].map((line) => (
+              <button
+                key={line}
+                type="button"
+                disabled={!live}
+                onClick={() => sendQuick(line)}
+                className="min-h-10 rounded-full border-2 border-[var(--rule)] bg-white px-3.5 text-[15px] font-bold hover:border-ink disabled:opacity-40"
+              >
+                {line}
+              </button>
+            ))}
+          </div>
+          <form className="flex gap-3 p-4" onSubmit={(e) => { e.preventDefault(); sendText(); }}>
             <label htmlFor="operator-text" className="sr-only">Ketik ucapan operator</label>
             <textarea
               id="operator-text" rows={2} value={text} onChange={(e) => setText(e.target.value)}
@@ -261,20 +296,27 @@ export default function ConsoleCall() {
       <aside aria-label="Panel demo" className="space-y-4 max-[1180px]:col-span-full max-[1180px]:grid max-[1180px]:grid-cols-2 max-[1180px]:gap-4 max-[1180px]:space-y-0 max-[860px]:grid-cols-1">
         <section aria-label="Layar pengguna" className={`${panel} p-4`}>
           <h2 className="mb-3 text-[18px] font-extrabold">Layar pengguna tuli</h2>
-          <div className="mx-auto w-[300px] rounded-[30px] border-[6px] border-ink bg-asphalt p-4 text-paint">
+          {/* Same look as the user's phone (Sill panels): square card, Gabarito question, ink answer buttons. */}
+          <div className="mx-auto w-[300px] rounded-[30px] border-[6px] border-ink bg-[#f4f1ee] p-3 text-[#0b0a0a]">
             {card ? (
-              <div className="space-y-2.5">
-                {card.degradation > 0 && <p className="inline-block rounded-[6px] bg-warning-bg px-2 text-[13px] font-bold text-signal">Degradasi L{card.degradation}</p>}
-                <p className={`text-[24px] leading-7 font-extrabold ${card.kind === "instruksi" ? "rounded-[10px] bg-signal p-2 text-ink" : ""}`}>{card.question}</p>
+              <div className={`space-y-2 p-3 ${card.kind === "instruksi" ? "bg-sill-mustard" : "bg-[#e6e1db]"}`}>
+                {card.degradation > 0 && <p className="inline-block bg-ink px-2 text-[12px] font-bold tracking-[0.06em] text-sill-mustard">DEGRADASI L{card.degradation}</p>}
+                <p className="font-[family-name:var(--font-display)] text-[26px] leading-7 font-black tracking-[-0.03em]">{card.question}</p>
                 {card.options.map((o, i) => (
-                  <div key={i} title={o.spoken} className={`flex min-h-12 items-center justify-center rounded-[10px] text-[17px] font-extrabold ${/tidak tahu/i.test(o.label) ? "border-[3px] border-paint/60" : "bg-paint text-ink"}`}>
+                  <div
+                    key={i}
+                    title={o.spoken}
+                    className={`flex min-h-12 items-center justify-center font-[family-name:var(--font-display)] text-[18px] font-black ${
+                      /tidak tahu/i.test(o.label) ? "shadow-[inset_0_0_0_2px_currentColor]" : card.kind === "instruksi" ? "bg-ink text-sill-mustard" : "bg-ink text-[#f4f1ee]"
+                    }`}
+                  >
                     {o.label}
                   </div>
                 ))}
-                <p className="pt-1 font-mono text-[12px] leading-4 text-paint-muted">{card.kind}</p>
+                <p className="pt-1 font-mono text-[12px] leading-4 text-[#57534e]">{card.kind}</p>
               </div>
             ) : (
-              <p className="py-10 text-center text-[15px] text-paint-muted">Kartu muncul di sini saat operator bertanya.</p>
+              <p className="py-10 text-center text-[15px] text-[#57534e]">Kartu muncul di sini saat operator bertanya.</p>
             )}
           </div>
         </section>

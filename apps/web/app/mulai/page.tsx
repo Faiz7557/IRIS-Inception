@@ -1,88 +1,135 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { IncidentIcon, CheckIcon } from "@/components/icons";
-import { paintOf } from "@/lib/incidents";
+import { INCIDENTS, paintOf } from "@/lib/incidents";
+import { IncidentIcon } from "@/components/icons";
 
-// Each step is shown, not told: a small live piece of the screen it teaches, plus one short line.
+// Screen 1 (brief §7): three steps, skippable, shown once; each step shows a small copy of the real screen.
 const STEPS = [
-  { t: "Pilih kejadian", d: "Ketuk gambar yang sesuai." },
-  { t: "Tahan tombol merah", d: "Tahan 3 detik. Kami menelepon 112 untuk Anda." },
-  { t: "Jawab dengan tombol", d: "Pertanyaan operator jadi tombol. Ketuk jawaban Anda." },
+  { t: "Pilih kejadian", d: "Ketuk gambar yang paling cocok. Ragu? Lewati saja.", tone: "tone-orange" },
+  { t: "Tahan SOS 3 detik", d: "Sistem menelepon 112 dan membacakan pesan Anda ke operator.", tone: "tone-mustard" },
+  { t: "Jawab dengan tombol", d: "Pertanyaan operator jadi satu kalimat pendek. Ketuk jawabannya.", tone: "tone-sage" },
+];
+const FAQ = [
+  ["Bagaimana bila internet putus?", "Aplikasi menyiapkan teks SMS berisi kejadian dan lokasi Anda untuk kontak darurat."],
+  ["Siapa yang tahu kondisi medis saya?", "Hanya operator, dan hanya bila Anda setuju di profil."],
+  ["Bisa dipakai diam-diam?", "Bisa. Mode senyap membuat layar redup, tanpa getar dan tanpa bunyi."],
 ];
 
-function Demo({ step }: { step: number }) {
-  if (step === 0) {
-    const ids = ["kebakaran", "kecelakaan", "sakit", "kejahatan"];
+function Picture({ step }: { step: number }) {
+  if (step === 0)
     return (
-      <div className="grid grid-cols-2 gap-2.5" aria-hidden>
-        {ids.map((id, i) => {
-          const p = paintOf(id);
+      <div className="grid grid-cols-3 gap-1.5" aria-hidden>
+        {INCIDENTS.map((i, n) => {
+          const p = paintOf(i.id);
           return (
-            <div
-              key={id}
-              style={{ background: p.bg, color: p.fg }}
-              className={`flex h-[92px] flex-col justify-between rounded-[14px] p-3 ${i === 0 ? "shadow-[0_0_0_4px_var(--paint-white)]" : "opacity-45"}`}
-            >
-              <IncidentIcon id={id} size={28} />
-              <span className="text-[17px] font-extrabold">{p.label}</span>
-            </div>
+            <span key={i.id} style={{ background: p.bg, color: p.fg }} className={`flex h-16 items-end p-2 ${n === 0 ? "shadow-[inset_0_0_0_4px_var(--ink-dark)]" : "opacity-60"}`}>
+              <IncidentIcon id={i.id} size={24} />
+            </span>
           );
         })}
       </div>
     );
-  }
-  if (step === 1) {
+  if (step === 1)
     return (
-      <div aria-hidden className="relative flex h-[104px] items-center gap-4 overflow-hidden rounded-[18px] bg-sos px-5 text-white">
-        <span className="absolute inset-y-0 left-0 w-2/3 bg-white/18" />
-        <span className="relative flex size-[58px] items-center justify-center rounded-full border-[5px] border-white text-[22px] font-extrabold">1</span>
-        <span className="relative text-[26px] font-extrabold">Terus tahan…</span>
+      <div aria-hidden className="relative flex h-24 items-center overflow-hidden bg-[color:var(--color-sos)] px-4 text-white">
+        <span className="s-display text-[26px] font-black tracking-[-0.03em]">Terus tahan…</span>
+        <span className="s-display ml-auto text-[48px] leading-none font-black">2</span>
+        <span className="absolute inset-x-0 bottom-0 h-2.5 bg-white/25">
+          <span className="block h-full w-2/3 bg-white" />
+        </span>
       </div>
     );
-  }
   return (
-    <div aria-hidden className="space-y-3 rounded-[14px] bg-asphalt-2 p-4">
-      <p className="text-[30px] leading-9 font-extrabold">Korban sadar?</p>
-      <div className="flex min-h-16 items-center justify-center gap-2 rounded-[12px] bg-done text-[20px] font-extrabold text-ink">
-        Ya <CheckIcon size={22} />
-      </div>
-      <div className="flex min-h-16 items-center justify-center rounded-[12px] bg-paint text-[20px] font-extrabold text-ink opacity-35">Tidak</div>
+    <div aria-hidden className="space-y-1.5 bg-[color:var(--color-surface)] p-3 text-[color:var(--color-text)]">
+      <p className="s-display text-[24px] leading-7 font-black tracking-[-0.03em]">Ada orang terjebak?</p>
+      <span className="s-display flex h-11 items-center justify-center bg-sill-sage text-[18px] font-black text-ink">Terkirim ✓</span>
+      <span className="s-display flex h-11 items-center justify-center bg-[color:var(--color-primary)] text-[18px] font-black text-[color:var(--color-on-primary)] opacity-35">Tidak</span>
     </div>
   );
 }
 
 export default function Mulai() {
   const r = useRouter();
-  const [i, setI] = useState(0);
-  const done = () => {
-    try { localStorage.setItem("j112.seen_intro", "1"); } catch { /* ignore */ }
-    r.replace("/masuk");
+  const [step, setStep] = useState(0); // 0..2 steps, 3 = ready
+  const go = (href: string) => {
+    try {
+      localStorage.setItem("j112.seen_intro", "1");
+    } catch {
+      /* ignore */
+    }
+    r.replace(href);
   };
-  const last = i === STEPS.length - 1;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") setStep((s) => Math.min(3, s + 1));
+      if (e.key === "ArrowLeft") setStep((s) => Math.max(0, s - 1));
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+
+  const s = STEPS[step];
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[480px] flex-col px-5 pt-4 pb-6">
-      <div className="flex min-h-12 items-center justify-between">
-        <ol className="flex gap-1.5" aria-label={`Langkah ${i + 1} dari ${STEPS.length}`}>
-          {STEPS.map((_, n) => (
-            <li key={n} className={`h-1.5 w-10 rounded-full ${n <= i ? "bg-paint" : "bg-asphalt-3"}`} />
-          ))}
-        </ol>
-        <Button variant="ghost" onClick={done}>Lewati</Button>
+    <main className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-2 text-[var(--color-text)]">
+      <div className="s-bar">
+        <span className="s-word">J112</span>
+        {step < 3 && (
+          <button type="button" onClick={() => setStep(3)} className="m-btn m-btn--sm m-btn--line">Lewati</button>
+        )}
       </div>
 
-      <section aria-live="polite" className="mt-10 flex flex-1 flex-col gap-8">
-        <Demo step={i} />
-        <div>
-          <h1 className="text-[34px] leading-[38px] font-extrabold tracking-[-0.02em]">{STEPS[i].t}</h1>
-          <p className="mt-3 text-[20px] leading-7 text-paint-muted">{STEPS[i].d}</p>
-        </div>
-      </section>
+      {step < 3 ? (
+        <section key={step} aria-labelledby="step-title" aria-live="polite" className="grid gap-2">
+          <div className={`s-panel ${s.tone} space-y-5`}>
+            <p className="m-label">Langkah {step + 1} dari {STEPS.length}</p>
+            <h1 id="step-title" className="s-title">{s.t}</h1>
+            <Picture step={step} />
+          </div>
+          <p className="s-panel m-surface text-[19px] leading-7" style={{ "--i": 1 } as React.CSSProperties}>{s.d}</p>
+        </section>
+      ) : (
+        <section aria-labelledby="ready-title" className="grid gap-2">
+          <div className="s-panel tone-ink space-y-4">
+            <h1 id="ready-title" className="s-title">Minta tolong tanpa bicara.</h1>
+            <p className="text-[18px] leading-7">
+              Jembatan 112 menghubungkan teman tuli dan teman yang sulit bicara dengan operator 112.
+            </p>
+          </div>
+          <p className="s-panel tone-mustard text-[16px] leading-6 font-semibold" style={{ "--i": 1 } as React.CSSProperties}>
+            Prototipe: belum menelepon 112 sungguhan. Akun baru mulai di mode latihan.
+          </p>
+          <div className="grid gap-2" style={{ "--i": 2 } as React.CSSProperties}>
+            {FAQ.map(([q, a]) => (
+              <details key={q} className="m-surface px-[18px] py-1">
+                <summary className="min-h-12 cursor-pointer content-center text-[17px] font-bold">{q}</summary>
+                <p className="pb-4 text-[16px] leading-6 text-text-muted">{a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <Button size="xl" className="w-full" onClick={() => (last ? done() : setI(i + 1))}>
-        {last ? "Mulai" : "Lanjut"}
-      </Button>
+      <div className="s-dock mt-auto grid gap-2 pt-6">
+        {step < 3 ? (
+          <>
+            <div className="flex justify-center gap-2 pb-1" aria-hidden>
+              {STEPS.map((_, i) => (
+                <span key={i} className={`h-2.5 ${i === step ? "w-8 bg-[color:var(--color-text)]" : "w-2.5 bg-[color:var(--color-text-muted)] opacity-40"}`} />
+              ))}
+            </div>
+            <button type="button" onClick={() => setStep(step + 1)} className="m-btn w-full">Lanjut</button>
+            {step > 0 && (
+              <button type="button" onClick={() => setStep(step - 1)} className="min-h-12 w-full font-bold">Kembali</button>
+            )}
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={() => go("/latihan")} className="m-btn w-full">Coba latihan dulu</button>
+            <button type="button" onClick={() => go("/masuk")} className="m-btn m-btn--line w-full">Masuk dengan nomor ponsel</button>
+          </>
+        )}
+      </div>
     </main>
   );
 }

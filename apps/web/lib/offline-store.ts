@@ -1,5 +1,12 @@
-// Raw IndexedDB copy of profile + contacts, used only by the offline SMS screen (TRD §9).
-export interface LocalProfile { display_name: string; address?: string | null; landmark?: string | null }
+// Raw IndexedDB copy of profile + contacts: the offline SMS screen (TRD §9), the officer card, and the profile
+// fallback when the API is unreachable. Medical fields are only written when the user consented.
+export interface LocalProfile {
+  display_name: string;
+  address?: string | null;
+  landmark?: string | null;
+  blood_type?: string | null;
+  medical_notes?: string | null;
+}
 export interface LocalContact { name: string; phone: string }
 
 const DB = "j112";

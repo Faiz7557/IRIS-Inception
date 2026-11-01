@@ -21,6 +21,9 @@ export default function ConsoleQueue() {
   const [micReady, setMicReady] = useState(false);
   const audio = useRef<AudioContext | null>(null);
   const rejectSockets = useRef(new Set<WebSocket>());
+  // First time each call appeared in this tab, for "menunggu 12 dtk" (the queue event carries no timestamp).
+  const firstSeen = useRef(new Map<string, number>());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     setToken(sessionStorage.getItem(TOKEN_KEY) ?? "");
@@ -61,6 +64,7 @@ export default function ConsoleQueue() {
     const title = document.title;
     let blink = false;
     const ring = () => {
+      setNow(Date.now());
       blink = !blink;
       document.title = blink ? "Panggilan masuk — Jembatan 112" : title;
       const context = audio.current;
@@ -156,6 +160,8 @@ export default function ConsoleQueue() {
           <div className="space-y-3">
             {calls.map((call) => {
               const p = paintOf(call.incident);
+              if (!firstSeen.current.has(call.call_id)) firstSeen.current.set(call.call_id, Date.now());
+              const waited = Math.max(0, Math.round((now - firstSeen.current.get(call.call_id)!) / 1000));
               return (
                 <article key={call.call_id} className="flex items-center gap-5 overflow-hidden rounded-[16px] bg-[var(--panel)] pr-5 shadow-[0_8px_24px_rgb(21_23_27/0.08)]">
                   <div style={{ background: p.bg, color: p.fg }} className="flex w-56 shrink-0 items-center gap-3 self-stretch p-5">
@@ -164,6 +170,9 @@ export default function ConsoleQueue() {
                   </div>
                   <div className="min-w-0 flex-1 py-4">
                     <p className="text-[18px] font-bold">{call.mode === "latihan" ? "Latihan" : "Simulasi"} · Percobaan {call.attempt}</p>
+                    <p className={`font-mono text-[16px] font-bold tabular-nums ${waited >= 20 ? "text-sos" : "text-[var(--ink-muted)]"}`}>
+                      Menunggu {waited} dtk
+                    </p>
                     <p className="truncate font-mono text-[14px] text-[var(--ink-muted)]">{call.call_id}</p>
                   </div>
                   <Button asChild size="xl" className="bg-ink text-paint hover:bg-[#2b2f37]">

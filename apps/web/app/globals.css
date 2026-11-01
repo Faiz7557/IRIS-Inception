@@ -5,60 +5,52 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Trayek Angkot: night asphalt ground, warm white paint, one solid route paint per incident.
- * Colour only where it means something: incident paint, SOS red, yellow for focus/practice, green for "done".
- * One theme on purpose: users are often in the dark or in smoke, and silent mode needs a dim screen anyway.
+ * User screens follow the 8B "Sill" template (MIT, https://8b.com/templates/sill/): flat square panels of
+ * saturated colour, the page showing through as thick gutters, very large Gabarito headings, square buttons
+ * filled by a rising arch. Light (off-white page) is the default; dark (black page, as the template) is chosen
+ * in Pengaturan or forced by silent mode. Red is kept for SOS only.
+ * The Trayek Angkot raw tokens below stay for the operator console, which keeps its own look.
  */
 :root {
-  color-scheme: dark;
-
   --asphalt: #15171b;
   --asphalt-2: #1f2228;
   --asphalt-3: #2b2f37;
   --paint-white: #f4f1ea;
-  --paint-muted: #bdb8ad; /* 9.6:1 on asphalt, 8.4:1 on asphalt-2 */
+  --paint-muted: #bdb8ad;
 
-  --paint-fire: #f26b1d;
-  --paint-crash: #f5c518;
-  --paint-medical: #18a999;
-  --paint-crime: #2f5bd3;
-  --paint-dv: #a23ec9;
-  --paint-disaster: #8a8f99;
-  --paint-general: #f4f1ea;
+  /* Incident paints, shared by phone and console. paintOf() picks dark/light ink per paint (all AA). */
+  --paint-fire: #cf6224;
+  --paint-crash: #e3b867;
+  --paint-medical: #80a89b;
+  --paint-crime: #5a3cd4;
+  --paint-dv: #a97d9c;
+  --paint-disaster: #bca59d;
+  --paint-general: #f4f1ee;
 
-  --ink-dark: #15171b;
+  --ink-dark: #0b0a0a;
   --ink-light: #ffffff;
 
-  --sos: #e0261b; /* white text 4.6:1 */
-  --sos-pressed: #9e1710;
-  --signal: #f5c518; /* focus ring, LATIHAN, warnings */
-  --done: #3ccf7a; /* stop reached */
+  --sos: #d42a1e; /* white text 5.1:1 */
+  --sos-pressed: #8f160e;
+  --signal: #f5c518; /* console focus ring */
+  --done: #3ccf7a;
 
-  /* Legacy names kept so existing screens re-skin without logic changes. */
-  --color-sos: var(--sos);
-  --color-sos-pressed: var(--sos-pressed);
-  --color-primary: #f4f1ea;
-  --color-primary-strong: #ffffff;
-  --color-on-primary: #15171b;
-  --color-navy: var(--paint-white);
-  --color-text: var(--paint-white);
-  --color-text-muted: var(--paint-muted);
-  --color-surface: var(--asphalt-2);
-  --color-bg: var(--asphalt);
-  --color-warning: var(--signal);
-  --color-warning-bg: #3a3013;
-  --color-success: var(--done);
-  --color-focus: var(--signal);
-  --color-accent: var(--signal);
+  /* Sill panel colours (template palette minus maroon and rust, which read as SOS red). */
+  --sill-orange: #cf6224;
+  --sill-mustard: #e3b867;
+  --sill-sage: #80a89b;
+  --sill-violet: #5a3cd4;
+  --sill-mauve: #a97d9c;
+  --sill-taupe: #bca59d;
+
   --incident-fire: var(--paint-fire);
   --incident-crash: var(--paint-crash);
   --incident-medical: var(--paint-medical);
   --incident-crime: var(--paint-crime);
   --incident-dv: var(--paint-dv);
   --incident-disaster: var(--paint-disaster);
-  --shadow-card: 0 6px 18px rgb(0 0 0 / 0.45);
 
-  /* shadcn/ui tokens mapped onto the same world. */
+  /* shadcn/ui tokens: console and the call screen's dialog, on Trayek. */
   --radius: 14px;
   --background: var(--asphalt);
   --foreground: var(--paint-white);
@@ -80,10 +72,47 @@
   --ring: var(--signal);
 }
 
-/* Silent mode dims further; the world is already dark. */
-.silent {
-  --paint-white: #e6e2d9;
+/* Light, the default. Repeated on the console's body so a dark choice on this device never reaches it. */
+:root,
+:root body:has(.console-shell) {
+  color-scheme: light;
+  --color-bg: #f4f1ee;
+  --color-surface: #e6e1db;
+  --color-text: #0b0a0a;
+  --color-text-muted: #57534e; /* 6.0:1 on surface */
+  --color-primary: #0b0a0a;
+  --color-primary-strong: #000000;
+  --color-on-primary: #f4f1ee;
+  --color-navy: #0b0a0a;
+  --color-accent: #0b0a0a;
+  --color-focus: #5a3cd4;
+  --color-sos: #d42a1e;
+  --color-sos-pressed: #8f160e;
+  --color-warning: #8a5a00;
+  --color-warning-bg: var(--sill-mustard);
+  --color-success: #2f6b57;
+  --shadow-card: none;
 }
+
+/* Dark: the template's black page. Silent mode forces it (Design Brief 5.1). */
+:root[data-theme="dark"],
+:root.silent {
+  color-scheme: dark;
+  --color-bg: #0b0a0a;
+  --color-surface: #1f1d1c;
+  --color-text: #f4f1ee;
+  --color-text-muted: #b3aea8; /* 8.0:1 on surface */
+  --color-primary: #f4f1ee;
+  --color-primary-strong: #ffffff;
+  --color-on-primary: #0b0a0a;
+  --color-navy: #f4f1ee;
+  --color-accent: #f4f1ee;
+  --color-focus: #e3b867;
+  --color-warning: #e3b867;
+  --color-success: #80a89b;
+}
+
+/* 40% black overlay helper: put class "silent-dim" on an empty element. */
 .silent-dim {
   position: fixed;
   inset: 0;
@@ -116,14 +145,20 @@
   --color-signal: var(--signal);
   --color-done: var(--done);
   --color-ink: var(--ink-dark);
+  --color-sill-orange: var(--sill-orange);
+  --color-sill-mustard: var(--sill-mustard);
+  --color-sill-sage: var(--sill-sage);
+  --color-sill-violet: var(--sill-violet);
+  --color-sill-mauve: var(--sill-mauve);
+  --color-sill-taupe: var(--sill-taupe);
   --color-incident-fire: var(--incident-fire);
   --color-incident-crash: var(--incident-crash);
   --color-incident-medical: var(--incident-medical);
   --color-incident-crime: var(--incident-crime);
   --color-incident-dv: var(--incident-dv);
   --color-incident-disaster: var(--incident-disaster);
-  --radius-card: 14px;
-  --radius-btn: 12px;
+  --radius-card: 0px;
+  --radius-btn: 0px;
   --shadow-card: var(--shadow-card);
 
   --color-background: var(--background);
@@ -160,30 +195,456 @@ body {
 }
 
 ::selection {
-  background: var(--signal);
+  background: var(--sill-mustard);
   color: var(--ink-dark);
-}
-input,
-textarea {
-  caret-color: var(--signal);
 }
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: var(--signal);
+  accent-color: var(--color-primary);
 }
 ::placeholder {
-  color: var(--paint-muted);
+  color: var(--color-text-muted);
   opacity: 1;
 }
 
 :focus-visible {
   outline: 3px solid var(--color-focus);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+}
+
+@layer components {
+  /* Layout: a column of panels with the page showing through as 8px gutters. */
+  .s-page {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    max-width: 480px;
+    margin-inline: auto;
+    padding: 8px 8px 96px;
+  }
+  .s-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 64px;
+    padding-inline: 8px;
+  }
+  .s-word {
+    font-family: var(--font-display), "Arial Black", sans-serif;
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    text-decoration: none;
+  }
+  .s-panel {
+    position: relative;
+    padding: 20px 18px;
+  }
+  .s-title {
+    margin: 0;
+    font-family: var(--font-display), "Arial Black", sans-serif;
+    font-size: clamp(40px, 12vw, 54px);
+    font-weight: 900;
+    line-height: 0.94;
+    letter-spacing: -0.035em;
+  }
+  .s-h2 {
+    font-family: var(--font-display), "Arial Black", sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .s-display {
+    font-family: var(--font-display), "Arial Black", sans-serif;
+  }
+  .s-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 2px 10px;
+    background: var(--ink-dark);
+    color: var(--sill-mustard);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+
+  /* Panel tones. Text colour per tone passes AA (white only on violet). */
+  .tone-ink {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  .tone-orange {
+    background: var(--sill-orange);
+    color: var(--ink-dark);
+  }
+  .tone-mustard {
+    background: var(--sill-mustard);
+    color: var(--ink-dark);
+  }
+  .tone-sage {
+    background: var(--sill-sage);
+    color: var(--ink-dark);
+  }
+  .tone-violet {
+    background: var(--sill-violet);
+    color: #fff;
+  }
+  .tone-mauve {
+    background: var(--sill-mauve);
+    color: var(--ink-dark);
+  }
+  .tone-taupe {
+    background: var(--sill-taupe);
+    color: var(--ink-dark);
+  }
+  [class*="tone-"] .m-label {
+    color: inherit;
+  }
+  [class*="tone-"] ::placeholder {
+    color: currentColor;
+    opacity: 0.7;
+  }
+
+  /* Template buttons: square, and an arch of mustard rises from below on hover or press. */
+  .m-btn {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 14px 24px;
+    border: 0;
+    border-radius: 0;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.35s;
+  }
+  .m-btn::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: -12%;
+    right: -12%;
+    top: 0;
+    height: 150%;
+    border-radius: 50% 50% 0 0 / 34% 34% 0 0;
+    background: var(--sill-mustard);
+    transform: translateY(101%);
+    transition: transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  .m-btn:not(:disabled):active::before {
+    transform: translateY(0);
+  }
+  .m-btn:not(:disabled):active {
+    color: var(--ink-dark);
+  }
+  @media (hover: hover) {
+    .m-btn:not(:disabled):hover::before {
+      transform: translateY(0);
+    }
+    .m-btn:not(:disabled):hover {
+      color: var(--ink-dark);
+    }
+  }
+  .m-btn--sm {
+    min-height: 48px;
+    padding: 10px 18px;
+    font-size: 16px;
+  }
+  .m-btn--line {
+    background: transparent;
+    color: inherit;
+    box-shadow: inset 0 0 0 2px currentColor;
+  }
+  .m-btn--danger {
+    background: transparent;
+    color: var(--color-sos);
+    box-shadow: inset 0 0 0 2px currentColor;
+  }
+  .m-btn--sos {
+    background: var(--color-sos);
+    color: #fff;
+  }
+  .m-btn--danger::before,
+  .m-btn--sos::before {
+    background: var(--sos-pressed);
+  }
+  .m-btn.m-btn--danger:not(:disabled):active,
+  .m-btn.m-btn--sos:not(:disabled):active {
+    color: #fff;
+  }
+  @media (hover: hover) {
+    .m-btn.m-btn--danger:not(:disabled):hover,
+    .m-btn.m-btn--sos:not(:disabled):hover {
+      color: #fff;
+    }
+  }
+  .m-btn:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .m-label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  /* Template field: a 2px box in the text colour (3:1 against any panel, WCAG 1.4.11). */
+  .m-field {
+    display: block;
+    width: 100%;
+    min-height: 52px;
+    padding: 11px 14px;
+    border: 2px solid currentColor;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  .m-field:disabled {
+    opacity: 0.5;
+  }
+  textarea.m-field {
+    min-height: 112px;
+    resize: vertical;
+  }
+  .m-surface {
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+  .m-band {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  .m-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-weight: 600;
+    text-decoration: none;
+    background: linear-gradient(currentColor, currentColor) 0 calc(100% - 6px) / 100% 2px no-repeat;
+    transition: background-size 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  @media (hover: hover) {
+    .m-link:hover {
+      background-size: 0 2px;
+      background-position-x: 100%;
+    }
+  }
+
+  /* Small status label: mode (LATIHAN / SIMULASI), readiness, "baru". */
+  .m-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 10px;
+    background: var(--ink-dark);
+    color: var(--sill-mustard);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  :root[data-theme="dark"] .m-chip:not(.m-chip--live, .m-chip--soft),
+  :root.silent .m-chip:not(.m-chip--live, .m-chip--soft) {
+    background: var(--sill-mustard);
+    color: var(--ink-dark);
+  }
+  .m-chip--live {
+    background: var(--color-sos);
+    color: #fff;
+  }
+  .m-chip--soft {
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  /* Square icon button, 48px touch floor. The label lives in aria-label (or a visible word beside it). */
+  .m-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0 12px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  }
+  .m-icon-btn[aria-pressed="true"] {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  @media (hover: hover) {
+    .m-icon-btn:hover {
+      background: var(--sill-mustard);
+      color: var(--ink-dark);
+    }
+  }
+
+  /* Menu row: icon, title + one muted line, status on the right, chevron. */
+  .m-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 72px;
+    padding: 12px 16px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-align: left;
+    text-decoration: none;
+    transition: background-color 0.15s ease-out;
+  }
+  .m-row__sub {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: 15px;
+    line-height: 20px;
+  }
+  @media (hover: hover) {
+    a.m-row:hover,
+    button.m-row:hover {
+      background: color-mix(in srgb, var(--color-surface) 82%, var(--color-text));
+    }
+  }
+
+  /* Switch: a real checkbox (role="switch"), drawn as a square track so it matches the panels. */
+  .m-switch {
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: 60px;
+    height: 34px;
+    margin: 0;
+    background: transparent;
+    box-shadow: inset 0 0 0 2px currentColor;
+    cursor: pointer;
+    transition: background-color 0.18s ease-out;
+  }
+  .m-switch::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 22px;
+    height: 22px;
+    background: currentColor;
+    transition: transform 0.18s ease-out, background-color 0.18s ease-out;
+  }
+  .m-switch:checked {
+    background: var(--color-primary);
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+  }
+  .m-switch:checked::after {
+    background: var(--color-on-primary);
+    transform: translateX(26px);
+  }
+  .m-switch:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  /* Bottom dock: keeps the main action under the thumb and clear of the home indicator. */
+  .s-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--color-bg) 78%, transparent);
+  }
+
+  /* Press feedback for tiles and answers (no layout shift). */
+  .m-press {
+    transition: transform 0.15s ease-out, opacity 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+  .m-press:active {
+    transform: scale(0.97);
+  }
+}
+
+/* "Teks besar" (profile.large_text): scale the whole user screen; the 480px column keeps it one-handed. */
+html.large-text body:not(:has(.console-shell)) {
+  zoom: 1.15;
+}
+
+/* Motion from the template, cut to what a short screen needs: panels open out from their corner, headings
+   rise word by word. Short, so the SOS bar is usable at once (it never animates in). */
+@media (prefers-reduced-motion: no-preference) {
+  .s-panel,
+  .s-open {
+    animation: s-open 0.18s ease-out backwards;
+    animation-delay: calc(min(var(--i, 0), 3) * 30ms);
+  }
+  /* Emergency surfaces appear at once: no entrance on the home grid and the call screen. */
+  .s-instant .s-panel,
+  .s-instant .s-open {
+    animation: none;
+  }
+  .s-title .w > span,
+  .s-rise > span {
+    animation: s-rise 0.35s cubic-bezier(0.16, 0.84, 0.24, 1) backwards;
+    animation-delay: calc(min(var(--d, 0), 4) * 30ms);
+  }
+}
+.s-title .w,
+.s-rise {
+  display: inline-block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+  vertical-align: bottom;
+}
+.s-title .w > span,
+.s-rise > span {
+  display: inline-block;
+}
+/* A short fade and lift: content is readable within 0.3 s even on a slow phone (was a 0.5 s corner wipe). */
+@keyframes s-open {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes s-rise {
+  from {
+    transform: translateY(105%);
   }
 }
 
