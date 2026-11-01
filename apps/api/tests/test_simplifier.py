@@ -232,3 +232,48 @@ async def test_request_shape_and_privacy(fake):
     ]
     raw = kw["messages"][0]["content"]
     assert "Melati" not in raw and "7,25752" not in raw
+
+
+async def test_openai_adapter_formatting(monkeypatch):
+    adapter = s.OpenAIMessagesAdapter("http://fake-router.local/v1", "test-key")
+    captured = {}
+
+    async def fake_post(url, headers=None, json=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["json"] = json
+        return httpx.Response(
+            200,
+            request=httpx.Request("POST", url),
+            json={
+                "choices": [{"message": {"content": "```json\n{\"kartu\": []}\n```"}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+            },
+        )
+
+    adapter._http = SimpleNamespace(is_closed=False, post=fake_post)
+    res = await adapter.create(
+        model="ag/gemini-3.8-flash-low",
+        system=[{"type": "text", "text": "system test"}],
+        messages=[{"role": "user", "content": "user test"}],
+    )
+    assert captured["url"] == "http://fake-router.local/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+    assert captured["json"]["model"] == "ag/gemini-3.8-flash-low"
+    assert captured["json"]["messages"] == [
+        {"role": "system", "content": "system test"},
+        {"role": "user", "content": "user test"},
+    ]
+    assert res.content[0].text == '{"kartu": []}'
+    assert res.usage.input_tokens == 10
+    assert res.usage.output_tokens == 5
+
+
+def test_get_client_picks_openai_adapter(monkeypatch):
+    monkeypatch.setattr(s, "_client", None)
+    monkeypatch.setenv("LLM_BASE_URL", "http://127.0.0.1:20128/v1")
+    monkeypatch.setenv("LLM_API_KEY", "dummy-key")
+    client = s._get_client()
+    assert isinstance(client.messages, s.OpenAIMessagesAdapter)
+    assert client.messages.base_url == "http://127.0.0.1:20128/v1"
+    assert client.messages.api_key == "dummy-key"

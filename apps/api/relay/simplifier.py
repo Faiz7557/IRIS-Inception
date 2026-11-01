@@ -8,9 +8,11 @@ import re
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
 import anthropic
+import httpx
 from pydantic import ValidationError
 
 from config import INCIDENTS, LLM_TIMEOUT_S, PHRASES, env
@@ -121,13 +123,65 @@ class InvalidOutput(ValueError):
     pass
 
 
-_client: anthropic.AsyncAnthropic | None = None
+class OpenAIMessagesAdapter:
+    """Adapts OpenAI-compatible /chat/completions (e.g. 9router) to messages.create interface."""
+    def __init__(self, base_url: str, api_key: str | None = None):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key or ""
+        self._http: httpx.AsyncClient | None = None
+
+    async def create(self, *, model: str, messages: list[dict], system: list[dict] | None = None, **kwargs):
+        sys_text = ""
+        if system:
+            for s in system:
+                if isinstance(s, dict) and s.get("type") == "text":
+                    sys_text += s.get("text", "")
+        chat_msgs = []
+        if sys_text:
+            chat_msgs.append({"role": "system", "content": sys_text})
+        for m in messages:
+            chat_msgs.append({"role": m["role"], "content": m["content"]})
+
+        url = f"{self.base_url}/chat/completions" if not self.base_url.endswith("/chat/completions") else self.base_url
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        body = {
+            "model": model,
+            "stream": False,
+            "messages": chat_msgs,
+            "response_format": {"type": "json_object"},
+        }
+        if self._http is None or self._http.is_closed:
+            self._http = httpx.AsyncClient(timeout=float(env("LLM_TIMEOUT_S") or 6.0))
+        resp = await self._http.post(url, headers=headers, json=body)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if "```" in content:
+            content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.MULTILINE).strip()
+        u = data.get("usage", {})
+        return SimpleNamespace(
+            stop_reason="end_turn",
+            content=[SimpleNamespace(type="text", text=content)],
+            usage=SimpleNamespace(
+                input_tokens=u.get("prompt_tokens"),
+                output_tokens=u.get("completion_tokens"),
+                cache_read_input_tokens=0,
+            ),
+        )
 
 
-def _get_client() -> anthropic.AsyncAnthropic:
+_client: anthropic.AsyncAnthropic | SimpleNamespace | None = None
+
+
+def _get_client():
     global _client
     if _client is None:
-        _client = anthropic.AsyncAnthropic(max_retries=0, timeout=2.0)
+        base_url = env("LLM_BASE_URL") or env("OPENAI_BASE_URL")
+        if base_url:
+            api_key = env("LLM_API_KEY") or env("OPENAI_API_KEY") or env("ANTHROPIC_API_KEY")
+            _client = SimpleNamespace(messages=OpenAIMessagesAdapter(base_url, api_key))
+        else:
+            _client = anthropic.AsyncAnthropic(max_retries=0, timeout=float(env("LLM_TIMEOUT_S") or 2.0))
     return _client
 
 
@@ -282,7 +336,7 @@ async def simplify(transcript: str, incident: str, history: list[dict], force_fa
     try:
         resp = await asyncio.wait_for(
             _get_client().messages.create(
-                model=env("LLM_MODEL", "claude-haiku-5-5"),
+                model=env("LLM_MODEL", "ag/gemini-3.8-flash-low" if (env("LLM_BASE_URL") or env("OPENAI_BASE_URL")) else "claude-haiku-5-5"),
                 max_tokens=400,
                 system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": payload}],
@@ -291,9 +345,9 @@ async def simplify(transcript: str, incident: str, history: list[dict], force_fa
             ),
             timeout=LLM_TIMEOUT_S,
         )
-    except (TimeoutError, anthropic.APITimeoutError):
+    except (TimeoutError, anthropic.APITimeoutError, httpx.TimeoutException):
         return l1("timeout")
-    except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.APIStatusError) as e:
+    except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.APIStatusError, httpx.HTTPError) as e:
         log.warning("llm api_error %s", type(e).__name__)
         return l1("api_error")
     except Exception as e:  # emergency path must never crash (e.g. missing credentials)
