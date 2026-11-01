@@ -6,15 +6,17 @@ import { IncidentIcon } from "./icons";
 
 export type CallPhase = "dialing" | "connected" | "failed" | "ended";
 
-/** The van's paint band: incident colour, icon and name, call clock, and the cancel control. */
+/**
+ * The van's paint band: incident colour, icon, name and call clock. Cancel lives at the bottom of the call
+ * screen, away from where the thumb rests on the top edge.
+ */
 export function CallHeader({
-  phase, incident, startedAt, practice, onCancel,
+  phase, incident, startedAt, practice,
 }: {
   phase: CallPhase;
   incident: string;
   startedAt: number | null;
   practice: boolean;
-  onCancel?: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -37,11 +39,6 @@ export function CallHeader({
             {practice && <span className="s-tag ml-2 !min-h-0 !px-1.5 !py-0 !text-[12px]">LATIHAN</span>}
           </span>
         </div>
-        {onCancel && phase !== "ended" && (
-          <button type="button" onClick={onCancel} className="m-btn m-btn--sm m-btn--line shrink-0 !px-3.5">
-            {t("call.cancel")}
-          </button>
-        )}
       </div>
     </header>
   );

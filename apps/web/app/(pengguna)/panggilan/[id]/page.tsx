@@ -13,7 +13,7 @@ import { QuestionCard, type AnswerStatus } from "@/components/QuestionCard";
 import { ShortInputSheet } from "@/components/ShortInputSheet";
 import { RouteBoard, type Stop } from "@/components/RouteBoard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { CheckIcon, IdCardIcon, SosIcon, WaveIcon } from "@/components/icons";
+import { CheckIcon, GpsIcon, IdCardIcon, SosIcon, WaveIcon } from "@/components/icons";
 import { ShowCard } from "@/components/ShowCard";
 
 const CSS = `
@@ -78,7 +78,8 @@ export default function PanggilanPage() {
   const [confirm, setConfirm] = useState(false);
   const [showOfficer, setShowOfficer] = useState(false);
   const [name, setName] = useState("");
-  const [hasAddress, setHasAddress] = useState(false);
+  const [address, setAddress] = useState("");
+  const hasAddress = address !== "";
   const [answeredN, setAnsweredN] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
 
@@ -207,7 +208,7 @@ export default function PanggilanPage() {
   useEffect(() => {
     loadProfile().then((p) => {
       if (p?.display_name) setName(p.display_name);
-      setHasAddress(typeof p?.address === "string" && p.address.trim() !== "");
+      setAddress(typeof p?.address === "string" ? p.address.trim() : "");
     });
     api<Contact[] | { contacts: Contact[] }>("/v1/me/contacts")
       .then((r) => setContacts(Array.isArray(r) ? r : r.contacts))
@@ -342,6 +343,7 @@ export default function PanggilanPage() {
   } else {
     // Waiting stages (dialing, opener, listening) share one layout: the route is the screen.
     const speaking = startedAt !== null && (st.state === "PEMBUKA" || !!opener?.speaking);
+    const gpsGood = !!fix && fix.accuracy_m <= 100;
     view = (
       <section className="space-y-2" aria-live="polite">
         <h1 className="sr-only">{!startedAt ? t("call.dialing") : speaking ? t("call.opener.title") : "Mendengarkan operator"}</h1>
@@ -354,6 +356,29 @@ export default function PanggilanPage() {
         {infos.map((x, i) => (
           <p key={i} className="m-surface px-[18px] py-3 text-[16px] leading-6">{x}</p>
         ))}
+        {/* What the opener carries, as facts the user can check at a glance (product principle 3). */}
+        <section aria-labelledby="knows-title" className="s-panel m-surface !py-4">
+          <h2 id="knows-title" className="m-label">{openerDone ? "Sudah dibacakan ke operator" : "Akan dibacakan ke operator"}</h2>
+          <ul className="space-y-2 text-[18px] leading-6 font-semibold">
+            {[
+              { ok: true, text: `Kejadian: ${incidentLabel}` },
+              // Mirrors opener.py: GPS is read out only at ≤ 100 m, otherwise the profile address.
+              {
+                ok: gpsGood || hasAddress,
+                text: gpsGood ? `Lokasi GPS, akurat ${fix!.accuracy_m} m` : hasAddress ? `Alamat: ${address}` : "Lokasi belum ada. Operator akan bertanya.",
+              },
+              ...(name ? [{ ok: true, text: `Nama: ${name}` }] : []),
+              { ok: true, text: "Anda tuli dan menjawab lewat tombol" },
+            ].map((x) => (
+              <li key={x.text} className="flex items-start gap-3">
+                <span className={`mt-0.5 shrink-0 ${x.ok ? (openerDone ? "text-[color:var(--color-success)]" : "text-text-muted") : "text-[color:var(--color-sos)]"}`}>
+                  {x.ok ? <CheckIcon size={22} /> : <GpsIcon size={22} />}
+                </span>
+                <span className="min-w-0">{x.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
         <OpenerText text={opener?.text ?? (sess.opener || `Panggilan relay otomatis untuk ${incidentLabel}.`)} />
       </section>
     );
@@ -363,7 +388,7 @@ export default function PanggilanPage() {
     <div className="mx-auto min-h-dvh w-full max-w-[480px]">
       <style>{CSS}</style>
       {flash > 0 && <div key={flash} className="call-flash" aria-hidden />}
-      <CallHeader phase={phase} incident={sess.incident} startedAt={startedAt} practice={sess.practice} onCancel={() => setConfirm(true)} />
+      <CallHeader phase={phase} incident={sess.incident} startedAt={startedAt} practice={sess.practice} />
       <div className="space-y-2 px-2 pt-2 empty:hidden">
         {conn === "reconnecting" && <p role="status" className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">Menyambung ulang…</p>}
         {authFailed && (
@@ -386,6 +411,9 @@ export default function PanggilanPage() {
             Tunjukkan ke orang di sekitar
           </button>
         )}
+        <button type="button" onClick={() => setConfirm(true)} className="m-btn m-btn--danger mt-6 w-full">
+          {t("call.cancel")} panggilan
+        </button>
       </main>
 
       {sheet && (

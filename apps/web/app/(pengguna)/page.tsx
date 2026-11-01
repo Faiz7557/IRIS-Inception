@@ -46,7 +46,7 @@ function ReadyRow({ ok, icon, text, fix, href }: { ok: boolean | null; icon: Rea
 
 export default function BerandaPage() {
   const router = useRouter();
-  const { fix, error } = useGeo();
+  const { fix, error, perm, request: askGps } = useGeo(false);
   const [incident, setIncident] = useState<Incident | null>(null);
   const [practice, setPractice] = useState(true); // default latihan until profile says otherwise
   const [address, setAddress] = useState<string | null>(null); // null = not loaded yet, "" = none
@@ -179,9 +179,11 @@ export default function BerandaPage() {
     ? t("home.location.ok", { m: fix.accuracy_m })
     : address
       ? `Alamat: ${address}`
-      : address === "" && error
-        ? "Lokasi belum ada"
-        : "Mencari lokasi GPS…";
+      : perm === "denied"
+        ? "Izin lokasi ditolak"
+        : address === "" && error
+          ? "Lokasi belum ada"
+          : "Mencari lokasi GPS…";
 
   return (
     <main className="s-instant mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-2">
@@ -230,9 +232,25 @@ export default function BerandaPage() {
           />
         ))}
       </div>
+      <p className="mt-2 px-1 text-[15px] leading-5 text-text-muted" aria-live="polite">
+        {incident ? "Ketuk lagi untuk batal memilih." : "Ragu memilih? Langsung tahan SOS. Operator tetap ditelepon."}
+      </p>
+
+      {perm === "prompt" && !fix && (
+        <section aria-labelledby="gps-title" className="tone-mustard mt-2 flex items-center gap-3 px-4 py-3">
+          <GpsIcon size={26} />
+          <div className="min-w-0 flex-1">
+            <h2 id="gps-title" className="text-[17px] leading-6 font-extrabold">Lokasi belum diizinkan</h2>
+            <p className="text-[15px] leading-5">Petugas jadi tahu tempat Anda. Hanya dikirim saat SOS.</p>
+          </div>
+          <button type="button" onClick={askGps} className="m-btn m-btn--sm shrink-0 !px-4">Izinkan</button>
+        </section>
+      )}
 
       <section aria-label="Kesiapan" aria-live="polite" className="m-surface mt-2 px-4 py-2 text-[17px] leading-6">
-        <ReadyRow ok={address === null && !fix ? null : !!fix || !!address} icon={<GpsIcon size={22} />} text={where} fix="Isi alamat" href="/profil" />
+        {!(perm === "prompt" && !fix) && (
+          <ReadyRow ok={address === null && !fix ? null : !!fix || !!address} icon={<GpsIcon size={22} />} text={where} fix="Isi alamat" href="/profil" />
+        )}
         <ReadyRow ok={name === null ? null : !!name} icon={<UserIcon size={22} />} text={name ? `Nama: ${name}` : name === null ? "Memeriksa profil…" : "Nama belum diisi"} fix="Isi" href="/profil" />
         <ReadyRow
           ok={contacts === null ? null : contacts > 0}

@@ -56,7 +56,7 @@ export function SosHoldButton({
     const sec = Math.floor(el / 1000);
     if (sec !== lastSec.current) {
       lastSec.current = sec;
-      vibrate(30);
+      vibrate(60); // one firm pulse per second: the count can be felt in a pocket or in smoke
     }
     if (el >= HOLD_MS) {
       doneRef.current = true;
@@ -129,6 +129,13 @@ export function SosHoldButton({
           start();
         }}
         onPointerUp={() => stop(true)}
+        onPointerMove={(e) => {
+          // Sliding the finger well off the bar cancels: a phone pressed in a pocket rarely stays put.
+          if (!startRef.current) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          const m = 32;
+          if (e.clientX < r.left - m || e.clientX > r.right + m || e.clientY < r.top - m || e.clientY > r.bottom + m) stop(true);
+        }}
         onPointerCancel={() => stop(true)}
         onContextMenu={(e) => e.preventDefault()}
         onBlur={() => stop(true)}
@@ -146,6 +153,11 @@ export function SosHoldButton({
           <span className="truncate text-[16px] leading-6 font-semibold text-white/90">{disabled ? "Menghubungkan…" : `Panggil 112 · ${target ?? "darurat umum"}`}</span>
         </span>
         {holding && (
+          <span aria-hidden className="absolute inset-x-0 bottom-0 h-3 bg-white/25">
+            <span className="block h-full bg-white" style={{ width: `${p * 100}%` }} />
+          </span>
+        )}
+        {holding && (
           <span aria-hidden className="s-display shrink-0 text-[64px] leading-none font-black tabular-nums">{left}</span>
         )}
       </button>
@@ -156,7 +168,7 @@ export function SosHoldButton({
           ? "Ketuk 2× cepat atau tahan 3 detik."
           : keyboard
           ? "Atau tahan tombol Spasi selama 3 detik."
-          : "Tahan sampai warna merah tua penuh."}
+          : "Tahan sampai garis putih penuh."}
       </p>
     </div>
   );

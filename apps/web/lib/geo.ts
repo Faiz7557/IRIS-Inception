@@ -5,11 +5,45 @@ import { loadLocal } from "./offline-store";
 
 export interface GeoFix { lat: number; lng: number; accuracy_m: number; captured_at: string }
 
-/** watchPosition per TRD §9. error is set when permission is denied/unavailable. */
-export function useGeo(): { fix: GeoFix | null; error: string | null } {
+export type GeoPermission = "granted" | "prompt" | "denied" | "unknown";
+
+/**
+ * watchPosition per TRD §9. error is set when permission is denied/unavailable.
+ * `auto: false` (home screen) only starts watching when permission is already granted, so the browser prompt
+ * never pops up unexplained; `request()` starts it from the "Izinkan lokasi" button.
+ */
+export function useGeo(auto = true): {
+  fix: GeoFix | null; error: string | null; perm: GeoPermission; request: () => void;
+} {
   const [fix, setFix] = useState<GeoFix | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [perm, setPerm] = useState<GeoPermission>("unknown");
+  const [on, setOn] = useState(auto);
+
   useEffect(() => {
+    if (auto) return;
+    let status: PermissionStatus | null = null;
+    const read = () => {
+      const st = (status?.state ?? "prompt") as GeoPermission;
+      setPerm(st);
+      if (st === "granted") setOn(true);
+    };
+    navigator.permissions
+      ?.query({ name: "geolocation" })
+      .then((s) => {
+        status = s;
+        read();
+        s.onchange = read;
+      })
+      .catch(() => setPerm("prompt"));
+    if (!navigator.permissions) setPerm("prompt");
+    return () => {
+      if (status) status.onchange = null;
+    };
+  }, [auto]);
+
+  useEffect(() => {
+    if (!on) return;
     if (!("geolocation" in navigator)) {
       setError("unsupported");
       return;
@@ -17,6 +51,7 @@ export function useGeo(): { fix: GeoFix | null; error: string | null } {
     const id = navigator.geolocation.watchPosition(
       (p) => {
         setError(null);
+        setPerm("granted");
         try {
           localStorage.setItem("j112_last_gps", JSON.stringify({ lat: p.coords.latitude, lng: p.coords.longitude }));
         } catch {
@@ -29,12 +64,16 @@ export function useGeo(): { fix: GeoFix | null; error: string | null } {
           captured_at: new Date(p.timestamp).toISOString(),
         });
       },
-      (e) => setError(e.code === e.PERMISSION_DENIED ? "denied" : "unavailable"),
+      (e) => {
+        setError(e.code === e.PERMISSION_DENIED ? "denied" : "unavailable");
+        if (e.code === e.PERMISSION_DENIED) setPerm("denied");
+      },
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 },
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
-  return { fix, error };
+  }, [on]);
+
+  return { fix, error, perm, request: () => setOn(true) };
 }
 
 /** Silent mode = class `.silent` on <html> (set by the (pengguna) layout from profile). */

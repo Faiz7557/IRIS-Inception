@@ -102,7 +102,7 @@ export default function LatihanPage() {
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[480px]">
-      <CallHeader phase={done ? "ended" : "connected"} incident="kebakaran" startedAt={startedAt} practice onCancel={() => router.push("/")} />
+      <CallHeader phase={done ? "ended" : "connected"} incident="kebakaran" startedAt={startedAt} practice />
       <main className="s-instant space-y-2 px-2 pt-2 pb-10">
         {done ? (
           <section className="space-y-2" aria-labelledby="ok-title">
@@ -143,6 +143,9 @@ export default function LatihanPage() {
                 “{heard}”
               </p>
             )}
+            <button type="button" onClick={() => router.push("/")} className="m-btn m-btn--line mt-6 w-full">
+              Keluar dari latihan
+            </button>
           </>
         )}
       </main>
