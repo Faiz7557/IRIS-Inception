@@ -38,7 +38,7 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
       aria-labelledby={titleId}
       className={`card-in space-y-4 px-[18px] py-5 outline-none ${instr ? "tone-mustard" : "m-surface"}`}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 empty:hidden">
         {silentDot && <span className={`h-3 w-3 rounded-full ${instr ? "bg-ink" : "bg-sill-mustard"}`} aria-label="Kartu baru" role="img" />}
         {CHIPS[card.degradation] && <span className="s-tag">{CHIPS[card.degradation]}</span>}
       </div>
@@ -65,10 +65,12 @@ export const QuestionCard = forwardRef<HTMLElement, Props>(function QuestionCard
               type="button"
               aria-disabled={locked || undefined}
               onClick={() => !locked && onOption(o)}
-              className={`s-display flex min-h-[72px] items-center justify-center gap-2 px-4 text-[24px] font-black tracking-[-0.02em] transition-[background-color,opacity] duration-150 ease-out ${
+              className={`m-press s-display flex min-h-[72px] items-center justify-center gap-2 px-4 text-[24px] font-black tracking-[-0.02em] transition-[background-color,opacity] duration-150 ease-out ${
                 mine && status === "sent"
                   ? "bg-sill-sage text-ink"
-                  : dont
+                  : mine
+                    ? "bg-sill-mustard text-ink"
+                    : dont
                     ? "bg-transparent shadow-[inset_0_0_0_2px_currentColor]"
                     : instr
                       ? "bg-ink text-sill-mustard"

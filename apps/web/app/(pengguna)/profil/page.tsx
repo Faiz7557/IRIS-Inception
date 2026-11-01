@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { COPY } from "@/lib/copy";
-import { saveLocalProfile } from "@/lib/offline-store";
+import { loadLocal, saveLocalProfile } from "@/lib/offline-store";
 import { PageHead } from "@/components/PageHead";
 
 const VERSION = "medis-v1-2026-10-31";
@@ -23,6 +23,7 @@ export default function Profil() {
   const [hadConsent, setHadConsent] = useState(false);
   const [preview, setPreview] = useState("");
   const [err, setErr] = useState("");
+  const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
   const [baru, setBaru] = useState(false); // first run after sign-in: only what the operator needs to find you
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -44,7 +45,15 @@ export default function Profil() {
         setHadConsent(!!d.medical_consent?.granted);
         setPreview(d.opener_preview ?? "");
       })
-      .catch(() => {});
+      .catch(() =>
+        loadLocal().then(({ profile: p }) => {
+          if (p) setF({
+            display_name: p.display_name ?? "", address: p.address ?? "", landmark: p.landmark ?? "",
+            blood_type: p.blood_type ?? "", medical_notes: p.medical_notes ?? "",
+          });
+          if (p?.blood_type || p?.medical_notes) setConsent(true);
+        }),
+      );
   }, []);
 
   async function save(e: React.FormEvent) {
@@ -53,6 +62,12 @@ export default function Profil() {
     if (baru && !f.address.trim()) return setErr("Alamat wajib diisi supaya petugas bisa menemukan Anda.");
     setBusy(true);
     setErr("");
+    setSaved("");
+    // Local copy first: the officer card and the offline SMS keep working even if the server is down.
+    await saveLocalProfile({
+      display_name: f.display_name.trim(), address: f.address.trim(), landmark: f.landmark.trim(),
+      ...(consent ? { blood_type: f.blood_type || null, medical_notes: f.medical_notes.trim() || null } : {}),
+    }).catch(() => {});
     try {
       if (consent !== hadConsent) {
         await api("/v1/me/consents", {
@@ -66,10 +81,15 @@ export default function Profil() {
       const body = { ...fields, ...(consent ? {} : { blood_type: null, medical_notes: null }), segment: "A" };
       const d = await api<ProfileRes>("/v1/me/profile", { method: "PUT", body: JSON.stringify(body) });
       setPreview(d.opener_preview ?? "");
-      await saveLocalProfile({ display_name: f.display_name, address: f.address, landmark: f.landmark }).catch(() => {});
       if (baru) return void r.replace("/");
+      setSaved("Tersimpan. Operator akan mendengar data ini.");
     } catch (x) {
-      setErr(x instanceof ApiError ? x.message : "Gagal menyimpan. Coba lagi.");
+      if (x instanceof ApiError && x.status < 500) setErr(x.message);
+      else {
+        // Server unreachable: the local copy above still feeds the officer card and the SMS text.
+        if (baru) return void r.replace("/");
+        setSaved("Tersimpan di ponsel ini. Simpan lagi saat internet tersambung agar operator juga tahu.");
+      }
     }
     setBusy(false);
   }
@@ -85,15 +105,18 @@ export default function Profil() {
       <form onSubmit={save} className="s-panel m-surface space-y-5" style={{ "--i": 1 } as React.CSSProperties}>
         <label className="block">
           <span className="m-label">Nama panggilan</span>
-          <input className={input} value={f.display_name} onChange={set("display_name")} autoComplete="nickname" />
+          <input className={input} value={f.display_name} onChange={set("display_name")} autoComplete="nickname" placeholder="Contoh: Rina" />
+          <span className="mt-1 block text-[15px] leading-5 text-text-muted">Operator memanggil Anda dengan nama ini.</span>
         </label>
         <label className="block">
           <span className="m-label">Alamat</span>
-          <input className={input} value={f.address} onChange={set("address")} autoComplete="street-address" />
+          <input className={input} value={f.address} onChange={set("address")} autoComplete="street-address" placeholder="Jl. Mawar No. 5, Gubeng, Surabaya" />
+          <span className="mt-1 block text-[15px] leading-5 text-text-muted">Dipakai bila GPS tidak tersedia.</span>
         </label>
         <label className="block">
           <span className="m-label">Patokan</span>
-          <input className={input} value={f.landmark} onChange={set("landmark")} />
+          <input className={input} value={f.landmark} onChange={set("landmark")} placeholder="Depan masjid, pagar hijau" />
+          <span className="mt-1 block text-[15px] leading-5 text-text-muted">Membantu petugas menemukan rumah Anda.</span>
         </label>
         {!baru && (
           <>
@@ -120,6 +143,11 @@ export default function Profil() {
         {err && (
           <p role="alert" className="font-semibold text-[var(--color-sos)]">
             {err}
+          </p>
+        )}
+        {saved && (
+          <p role="status" className="tone-sage px-4 py-3 font-semibold">
+            {saved}
           </p>
         )}
         <button disabled={busy} className="m-btn w-full">

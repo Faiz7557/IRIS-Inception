@@ -4,6 +4,8 @@ import { INCIDENTS } from "@/lib/incidents";
 import { t } from "@/lib/copy";
 import { PageHead } from "@/components/PageHead";
 import { loadLocal, type LocalContact, type LocalProfile } from "@/lib/offline-store";
+import Link from "next/link";
+import { IdCardIcon, MessageIcon, ShareIcon } from "@/components/icons";
 
 // Written by lib/geo.ts useGeo on every fix.
 function lastGps(): { lat: number; lng: number } | null {
@@ -47,21 +49,43 @@ export default function Offline() {
   }, []);
 
   const smsHref = (phone: string) => `sms:${phone}${ios ? "&" : "?"}body=${encodeURIComponent(text)}`;
+  const [copied, setCopied] = useState(false);
+  // Any messenger works when no contact is saved: the system share sheet, or the clipboard as a last resort.
+  const shareText = async () => {
+    try {
+      if (navigator.share) return await navigator.share({ text });
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      /* share sheet dismissed */
+    }
+  };
 
   return (
     <main className="min-h-dvh text-[var(--color-text)]">
-      <PageHead title={t("offline.title")} lead="Kirim SMS ke kontak darurat Anda. Teks sudah siap." tone="orange" />
+      <PageHead title={online ? "SMS darurat" : t("offline.title")} lead="Kirim SMS ke kontak darurat Anda. Teks sudah siap." back="/" tone="orange" />
       <div className="s-page">
         <div className="s-panel m-surface" style={{ "--i": 1 } as React.CSSProperties}>
           <p className="m-label">Teks SMS</p>
           <pre className="whitespace-pre-wrap font-sans text-[17px] leading-7">{text}</pre>
         </div>
-        {contacts.length === 0 && <p className="s-panel m-surface text-[var(--color-text-muted)]">Belum ada kontak tersimpan di ponsel ini. Telepon 112 bila bisa.</p>}
+        {contacts.length === 0 && <p className="s-panel m-surface text-[var(--color-text-muted)]">Belum ada kontak tersimpan di ponsel ini. Bagikan teks ini ke siapa saja, atau minta orang di sekitar menelepon 112.</p>}
         {contacts.map((c) => (
           <a key={c.phone} href={smsHref(c.phone)} className="m-btn w-full">
-            Buka SMS: {c.name}
+            <MessageIcon size={22} />
+            Kirim SMS ke {c.name}
           </a>
         ))}
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={shareText} className="m-btn m-btn--line">
+            <ShareIcon size={22} />
+            {copied ? "Disalin" : "Bagikan"}
+          </button>
+          <Link href="/kartu" className="m-btn m-btn--line">
+            <IdCardIcon size={22} />
+            Kartu
+          </Link>
+        </div>
         {online && (
           <button onClick={() => (location.href = "/")} className="m-btn m-btn--line w-full">
             Coba panggil lagi

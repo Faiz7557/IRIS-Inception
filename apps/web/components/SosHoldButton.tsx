@@ -10,10 +10,13 @@ export function SosHoldButton({
   onComplete,
   disabled,
   doubleTap,
+  target,
 }: {
   onComplete: () => void;
   disabled?: boolean;
   doubleTap?: boolean;
+  /** What the call is for, shown under the label so the pick is confirmed under the thumb. */
+  target?: string;
 }) {
   const [p, setP] = useState(0); // 0..1
   const [holding, setHolding] = useState(false);
@@ -130,7 +133,7 @@ export function SosHoldButton({
         onContextMenu={(e) => e.preventDefault()}
         onBlur={() => stop(true)}
         style={{ touchAction: "none", background: "var(--sos)" }}
-        className="relative isolate flex h-[112px] w-full select-none items-center gap-4 overflow-hidden px-5 text-left text-white disabled:opacity-60"
+        className="relative isolate flex h-[104px] w-full select-none items-center gap-4 overflow-hidden px-5 text-left text-white disabled:opacity-60"
       >
         {/* The template's button arch, slowed to the hold: it rises from the bottom and fills the bar at 3 s. */}
         <span
@@ -140,20 +143,20 @@ export function SosHoldButton({
         />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="s-display text-[34px] leading-9 font-black tracking-[-0.03em] whitespace-nowrap">{holding ? "Terus tahan…" : t("home.sos")}</span>
-          <span className="text-[16px] leading-6 text-white/90">untuk memanggil 112</span>
+          <span className="truncate text-[16px] leading-6 font-semibold text-white/90">{disabled ? "Menghubungkan…" : `Panggil 112 · ${target ?? "darurat umum"}`}</span>
         </span>
         {holding && (
           <span aria-hidden className="s-display shrink-0 text-[64px] leading-none font-black tabular-nums">{left}</span>
         )}
       </button>
-      <p id="sos-help" className={`mt-2 text-center text-[16px] leading-6 ${hint ? "font-bold text-signal" : "text-paint-muted"}`}>
+      <p id="sos-help" className={`mt-2 text-center text-[16px] leading-6 ${hint ? "font-bold text-[color:var(--color-sos)]" : "text-text-muted"}`}>
         {hint
           ? t("home.sos.release_early")
           : doubleTap
           ? "Ketuk 2× cepat atau tahan 3 detik."
           : keyboard
           ? "Atau tahan tombol Spasi selama 3 detik."
-          : "Tahan sampai lingkaran penuh."}
+          : "Tahan sampai warna merah tua penuh."}
       </p>
     </div>
   );

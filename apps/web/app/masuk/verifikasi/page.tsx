@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { PageHead } from "@/components/PageHead";
-
-function deviceKey(): string {
-  let k = localStorage.getItem("j112_device_key");
-  if (!k) { k = crypto.randomUUID(); localStorage.setItem("j112_device_key", k); }
-  return k;
-}
+import { deviceKey } from "@/lib/utils";
 
 export default function Verifikasi() {
   const r = useRouter();

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeftIcon } from "./icons";
 
 export type Tone = "ink" | "orange" | "mustard" | "sage" | "violet" | "mauve" | "taupe";
 
@@ -11,7 +12,8 @@ export function PageHead({ title, lead, back, tone = "ink" }: { title: string; l
           J112
         </Link>
         {back && (
-          <Link href={back} className="m-btn m-btn--sm">
+          <Link href={back} className="m-btn m-btn--sm !pl-3.5">
+            <ArrowLeftIcon size={20} />
             Kembali
           </Link>
         )}

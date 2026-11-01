@@ -13,7 +13,8 @@ import { QuestionCard, type AnswerStatus } from "@/components/QuestionCard";
 import { ShortInputSheet } from "@/components/ShortInputSheet";
 import { RouteBoard, type Stop } from "@/components/RouteBoard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { CheckIcon, CloseIcon, IncidentIcon, SosIcon, WaveIcon } from "@/components/icons";
+import { CheckIcon, IdCardIcon, SosIcon, WaveIcon } from "@/components/icons";
+import { ShowCard } from "@/components/ShowCard";
 
 const CSS = `
 .call-flash{position:fixed;inset:0;border:8px solid var(--color-primary);pointer-events:none;z-index:60;animation:jflash 300ms ease-out forwards}
@@ -376,7 +377,16 @@ export default function PanggilanPage() {
           <p className="tone-mustard px-[18px] py-2 text-[16px] font-semibold">{deg === 2 ? "Teks operator tidak tersedia" : "Suara terbatas"}</p>
         )}
       </div>
-      <main className="space-y-2 px-2 pt-2 pb-8">{view}</main>
+      <main className="s-instant space-y-2 px-2 pt-2 pb-8">
+        {view}
+        {/* Someone may walk up mid-call: the officer card is one tap away on every stage, not only after dispatch. */}
+        {!fb && !dispatched && (
+          <button type="button" onClick={() => setShowOfficer(true)} className="m-icon-btn w-full !min-h-14">
+            <IdCardIcon size={22} />
+            Tunjukkan ke orang di sekitar
+          </button>
+        )}
+      </main>
 
       {sheet && (
         <ShortInputSheet
@@ -398,17 +408,13 @@ export default function PanggilanPage() {
       </Dialog>
 
       {showOfficer && (
-        <div
-          role="dialog" aria-modal="true" aria-label="Ringkasan untuk petugas"
-          style={{ background: paint.bg, color: paint.fg }}
-          className="fixed inset-0 z-50 flex flex-col justify-center gap-5 p-7"
-        >
-          <button type="button" onClick={() => setShowOfficer(false)} aria-label="Tutup" className="absolute top-3 right-3 flex size-14 items-center justify-center"><CloseIcon size={34} /></button>
-          <IncidentIcon id={sess.incident} size={72} />
-          <p className="s-display text-[48px] leading-[50px] font-black tracking-[-0.035em]">Saya tuli. Tolong bantu saya.</p>
-          <p className="text-[30px] leading-9 font-bold">{incidentLabel}</p>
-          {name && <p className="text-[24px] leading-8">Nama: {name}</p>}
-        </div>
+        <ShowCard
+          title="Saya tuli. Tolong bantu saya."
+          lines={[incidentLabel, ...(name ? [`Nama: ${name}`] : [])]}
+          incident={sess.incident}
+          paint={paint}
+          onClose={() => setShowOfficer(false)}
+        />
       )}
     </div>
   );

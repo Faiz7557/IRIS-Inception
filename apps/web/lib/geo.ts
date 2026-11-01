@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { loadLocal } from "./offline-store";
 
 export interface GeoFix { lat: number; lng: number; accuracy_m: number; captured_at: string }
 
@@ -53,12 +54,33 @@ export interface Profile {
   [k: string]: unknown;
 }
 
-/** GET /v1/me/profile; tolerates both `{profile: {...}}` and a bare profile. null on any failure. */
+/**
+ * GET /v1/me/profile; tolerates both `{profile: {...}}` and a bare profile. When the server is unreachable it
+ * falls back to this device's copy (IndexedDB), marked `local: true`; null when neither exists.
+ */
 export async function loadProfile(): Promise<Profile | null> {
   try {
-    const r = await api<{ profile?: Profile } & Profile>("/v1/me/profile");
+    // A slow network must not hold the home screen: after 4 s the local copy is good enough.
+    const r = await Promise.race([
+      api<{ profile?: Profile } & Profile>("/v1/me/profile"),
+      new Promise<never>((_, no) => setTimeout(() => no(new Error("timeout")), 4000)),
+    ]);
     return r.profile ?? r;
   } catch {
-    return null;
+    const { profile } = await loadLocal();
+    return profile ? { ...profile, local: true } : null;
+  }
+}
+
+/** What the operator and the officer card can already use. Drives the home readiness strip. */
+export interface Readiness { name: boolean; address: boolean; contacts: boolean; practiced: boolean }
+
+export const PRACTICED_KEY = "j112.practiced";
+
+export function hasPracticed(): boolean {
+  try {
+    return localStorage.getItem(PRACTICED_KEY) === "1";
+  } catch {
+    return false;
   }
 }

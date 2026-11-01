@@ -4,8 +4,8 @@ import { paintOf } from "@/lib/incidents";
 
 /** One flat Sill panel in the incident's paint. Selected = thick ink frame + check; the others dim. */
 export function IncidentTile({
-  id, label, selected, dimmed, onToggle, order = 0,
-}: { id: string; label: string; selected: boolean; dimmed: boolean; onToggle: () => void; order?: number }) {
+  id, label, selected, dimmed, onToggle,
+}: { id: string; label: string; selected: boolean; dimmed: boolean; onToggle: () => void }) {
   const p = paintOf(id);
   return (
     <button
@@ -17,8 +17,8 @@ export function IncidentTile({
         // Keyboard users (Tab + Space, detail 0) keep focus here.
         if (e.detail > 0) e.currentTarget.blur();
       }}
-      style={{ background: p.bg, color: p.fg, "--i": order } as React.CSSProperties}
-      className={`s-open relative flex h-[112px] flex-col justify-between p-3.5 text-left transition-[opacity,box-shadow] duration-200 ease-out ${
+      style={{ background: p.bg, color: p.fg }}
+      className={`m-press relative flex h-[104px] flex-col justify-between p-3.5 text-left ${
         selected ? "shadow-[inset_0_0_0_5px_var(--ink-dark)]" : ""
       } ${dimmed ? "opacity-60" : ""}`}
     >

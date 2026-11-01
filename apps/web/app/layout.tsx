@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible_Mono, Gabarito, Rethink_Sans } from "next/font/google";
+import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Gabarito } from "next/font/google";
 import "./globals.css";
 import RegisterSW from "@/components/RegisterSW";
-import { THEME_KEY } from "@/lib/theme";
+import { LARGE_KEY, THEME_KEY } from "@/lib/theme";
 
-// Sill template faces: Gabarito for headings, Rethink Sans for body and buttons. Mono stays for clocks and codes.
-const sans = Rethink_Sans({
+// Gabarito for the big Sill headings; Atkinson Hyperlegible Next (brand font, built for low-vision legibility)
+// for body, buttons and answers. Mono stays for clocks and codes.
+const sans = Atkinson_Hyperlegible_Next({
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "600", "700", "800"],
   display: "swap",
   fallback: ["system-ui"],
   variable: "--font-sans",
@@ -27,8 +28,8 @@ const mono = Atkinson_Hyperlegible_Mono({
   variable: "--font-mono",
 });
 
-// Runs before first paint so a saved dark choice never flashes light.
-const themeScript = `try{if(localStorage.getItem("${THEME_KEY}")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
+// Runs before first paint so a saved dark choice or large text never flashes the default.
+const themeScript = `try{var d=document.documentElement;if(localStorage.getItem("${THEME_KEY}")==="dark")d.dataset.theme="dark";if(localStorage.getItem("${LARGE_KEY}")==="1")d.classList.add("large-text")}catch(e){}`;
 
 export const metadata: Metadata = {
   title: "Jembatan 112",
@@ -39,6 +40,7 @@ export const viewport: Viewport = {
   themeColor: "#f4f1ee",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

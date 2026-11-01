@@ -64,7 +64,7 @@ export default function Mulai() {
               <button type="button" onClick={done} className="m-btn">
                 Mulai
               </button>
-              <a className="m-link" href="#cara">Lihat caranya</a>
+              <a className="m-link" href="/latihan">Coba latihan dulu</a>
             </div>
           </div>
         </section>
